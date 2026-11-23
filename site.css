@@ -17,6 +17,7 @@
   --rule: rgba(222, 232, 255, 0.22);
   --shade: rgba(2, 5, 18, 0.62);
   --gutter: clamp(16px, 3.4vw, 48px);
+  --dock-gutter: min(var(--gutter), 5vh);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --title-track: 0.34em;
   color-scheme: dark;
@@ -79,9 +80,13 @@ button {
   outline: none;
 }
 .live:active { cursor: grabbing; }
+/* With the keyboard on the scene (the arrow keys turn it): a frame line. */
+.live:focus-visible { outline: 1px solid var(--rule); outline-offset: -7px; border-radius: 0; }
 
 body.is-live .live { opacity: 1; }
-body.is-live .poster { opacity: 0; }
+/* The still stays under the live frame until that is fully up (a
+   cross-fade of the two would dip through the dark page between them). */
+body.is-live .poster { opacity: 0; transition: opacity 0.01s linear 1.5s; }
 body.is-recorded .recording.playing { opacity: 1; }
 
 /* The opening: the frame opens out of a letterbox. */
@@ -116,6 +121,7 @@ body.opened .letterbox span { transform: scaleY(0); }
   left: calc(var(--gutter) + env(safe-area-inset-left));
   max-width: min(36rem, 60vw);
   text-shadow: 0 1px 14px rgba(0, 0, 10, 0.55);
+  pointer-events: none;
 }
 
 .title {
@@ -152,7 +158,9 @@ body.opening .place { opacity: 0; }
   letter-spacing: 0.04em;
   text-shadow: 0 1px 12px rgba(0, 0, 10, 0.55);
   transition: opacity 2s var(--ease-out) 2.2s;
+  pointer-events: none;
 }
+.hour button { pointer-events: auto; }
 body.opening .hour { opacity: 0; }
 
 .hour-btn, .story-btn {
@@ -175,28 +183,48 @@ body.opening .hour { opacity: 0; }
   transition: transform 0.6s var(--ease-out);
 }
 .hour-btn[aria-pressed="true"]::after { transform: scaleX(1); }
-.story-btn {
-  margin-left: 0.6em;
-  padding-left: 1.6em;
+/* A rule between the hours and the story, outside the button so its
+   focus ring is the word's own. */
+.story-btn { margin-left: 2.2em; }
+.story-btn::before {
+  content: "";
+  position: absolute;
+  left: -1.6em;
+  top: 2px;
+  bottom: 2px;
   border-left: 1px solid var(--rule);
 }
 .story-btn[aria-expanded="true"] { color: var(--ink); }
 
-/* Opening subtitles, as a film sets them. */
-.subtitles {
-  position: absolute;
-  left: 50%;
-  bottom: calc(clamp(150px, 21vh, 210px) + env(safe-area-inset-bottom));
-  transform: translateX(-50%);
-  width: min(44rem, calc(100vw - 2 * var(--gutter)));
-  text-align: center;
-  pointer-events: none;
-}
-.subtitle {
+/* Everything low in the frame is one column, the dock: the opening
+   subtitles over the looks, the looks over their controls. Each takes the
+   room it needs, so none is ever drawn over another, at any size. The dock
+   itself lets a drag through to the scene; only its controls take the
+   pointer. */
+.dock {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 0;
+  bottom: calc(var(--dock-gutter) + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Opening subtitles, as a film sets them: both in one cell, so the dock
+   keeps the taller one's room and a change of line moves nothing. */
+.subtitles {
+  display: grid;
+  width: min(44rem, calc(100vw - 2 * var(--gutter)));
+  margin-bottom: clamp(14px, 3.4vh, 34px);
+  text-align: center;
+}
+.subtitle {
+  grid-area: 1 / 1;
+  align-self: end;
   margin: 0;
   font-size: clamp(16px, 1.45vw, 22px);
   font-weight: 360;
@@ -213,10 +241,7 @@ body.opening .hour { opacity: 0; }
 
 /* The looks: a credit row of names, each with its colours. */
 .looks {
-  position: absolute;
-  left: calc(var(--gutter) + env(safe-area-inset-left));
-  right: calc(var(--gutter) + env(safe-area-inset-right));
-  bottom: calc(var(--gutter) + env(safe-area-inset-bottom));
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -227,6 +252,7 @@ body.opening .looks { opacity: 0; transform: translateY(10px); }
 
 .looks-label {
   margin: 0 0 1.1em;
+  padding: 0 var(--gutter);
   font-weight: 480;
   font-size: 12px;
   letter-spacing: 0.3em;
@@ -234,19 +260,41 @@ body.opening .looks { opacity: 0; transform: translateY(10px); }
   color: var(--ink-quiet);
 }
 
-.look-row {
+/* The row is as wide as its names and sits in the middle; where the
+   window is narrower than the names it scrolls sideways, fading at each
+   edge that has more (and, with a mouse, an arrow there to bring it). */
+.look-strip {
+  position: relative;
   display: flex;
   justify-content: center;
-  gap: clamp(18px, 2.6vw, 40px);
-  max-width: 100%;
+  width: 100%;
+  --fade-start: 0px;
+  --fade-end: 0px;
 }
+.look-strip[data-more~="start"] { --fade-start: 72px; }
+.look-strip[data-more~="end"] { --fade-end: 72px; }
+
+.look-row {
+  display: flex;
+  gap: clamp(2px, 1.5vw, 24px);
+  max-width: 100%;
+  padding: 0 calc(var(--gutter) - 9px + env(safe-area-inset-right)) 0 calc(var(--gutter) - 9px + env(safe-area-inset-left));
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  pointer-events: auto;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--fade-start), #000 calc(100% - var(--fade-end)), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 var(--fade-start), #000 calc(100% - var(--fade-end)), transparent);
+}
+.look-row::-webkit-scrollbar { display: none; }
 
 .look {
+  flex: none;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  padding: 6px 2px 8px;
+  padding: 6px 9px 8px;
   color: var(--ink-quiet);
   font-size: clamp(15px, 1.1vw, 17px);
   font-weight: 380;
@@ -254,9 +302,11 @@ body.opening .looks { opacity: 0; transform: translateY(10px); }
   white-space: nowrap;
   text-shadow: 0 1px 10px rgba(0, 0, 10, 0.6);
   transition: color 0.5s var(--ease-out);
+  -webkit-tap-highlight-color: transparent;
 }
 .look:hover { color: var(--ink-soft); }
 .look[aria-pressed="true"] { color: var(--ink); }
+.look:focus-visible { outline-offset: -1px; }
 
 .swatch {
   display: block;
@@ -267,11 +317,47 @@ body.opening .looks { opacity: 0; transform: translateY(10px); }
   transition: width 0.7s var(--ease-out), opacity 0.5s var(--ease-out), height 0.7s var(--ease-out);
 }
 .look:hover .swatch { opacity: 0.95; }
-.look[aria-pressed="true"] .swatch { width: 56px; height: 4px; opacity: 1; }
+/* The playing look's bar is longer, but never wider than its name, so the
+   row keeps its width from look to look. */
+.look[aria-pressed="true"] .swatch { width: max(30px, min(56px, 100%)); height: 4px; opacity: 1; }
+
+.row-nav {
+  display: none;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: calc(var(--gutter) + 20px);
+  min-width: 44px;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-soft);
+  pointer-events: auto;
+  transition: color 0.4s var(--ease-out);
+}
+.row-nav:hover { color: var(--ink); }
+.row-nav svg {
+  width: 9px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 1px 6px rgba(0, 0, 10, 0.8));
+}
+#row-prev { left: 0; }
+#row-next { right: 0; }
+@media (hover: hover) and (pointer: fine) {
+  .row-nav:not([hidden]) { display: flex; }
+}
 
 .look-line {
   margin: 1em 0 0;
+  padding: 0 var(--gutter);
+  max-width: 46rem;
   min-height: 1.5em;
+  line-height: 1.5;
+  text-wrap: balance;
   font-size: clamp(13px, 0.95vw, 15px);
   color: var(--ink-soft);
   letter-spacing: 0.02em;
@@ -289,6 +375,7 @@ body.opening .looks { opacity: 0; transform: translateY(10px); }
 }
 .adjust[hidden] { display: none; }
 .control {
+  pointer-events: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -339,6 +426,7 @@ body.opening .looks { opacity: 0; transform: translateY(10px); }
 .control input:focus-visible { outline: 1px solid var(--ink-soft); outline-offset: 4px; }
 .control:hover, .control:focus-within { color: var(--ink-soft); }
 .adjust-btn {
+  pointer-events: auto;
   display: none;
   margin-top: 0.9em;
   font-size: 12px;
@@ -350,24 +438,109 @@ body.opening .looks { opacity: 0; transform: translateY(10px); }
 }
 .adjust-btn[aria-expanded="true"] { color: var(--ink); }
 
-/* Quiet notes. */
-.hint, .status {
+/* Loading: a leaf of the tree whose ten lights come on, in the order they
+   are wired (up one side, down the other), as the tree arrives. The lit
+   ones breathe in a slow crawl and the next one pulses, so it reads as
+   working even while a large file is on its way. It sits where the
+   subtitles will, low over the water, and fades as the live frame comes
+   up. */
+.loader {
   position: absolute;
   left: 50%;
+  bottom: calc(clamp(110px, 16vh, 170px) + env(safe-area-inset-bottom));
   transform: translateX(-50%);
-  margin: 0;
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  color: var(--ink-quiet);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(30rem, calc(100vw - 2 * var(--gutter)));
+  text-align: center;
+  opacity: 0;
+  animation: loader-in 0.9s var(--ease-out) 0.15s forwards;
+  transition: opacity 0.9s var(--ease-out), filter 0.9s var(--ease-out);
+}
+body:not(.is-loading) .loader { opacity: 0; filter: blur(4px); animation: none; pointer-events: none; }
+.loader[hidden] { display: none; }
+@keyframes loader-in { to { opacity: 1; } }
+
+.leaf {
+  width: clamp(52px, 4.2vw, 64px);
+  height: auto;
+  aspect-ratio: 48 / 64;
+  overflow: visible;
+  filter: drop-shadow(0 0 10px rgba(150, 180, 255, calc(0.15 + 0.5 * var(--p, 0))));
+}
+.leaf-fill {
+  fill: url(#leaf-glow);
+  opacity: calc(0.08 + 0.62 * var(--p, 0));
+  transition: opacity 0.6s var(--ease-out);
+}
+.leaf-edge {
+  fill: none;
+  stroke: rgba(222, 232, 255, 0.55);
+  stroke-width: 0.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.leaf-lights circle {
+  fill: #f4f7ff;
+  opacity: calc(0.16 + 0.84 * var(--on, 0));
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: opacity 0.5s var(--ease-out);
+  filter: drop-shadow(0 0 2.5px rgba(200, 220, 255, calc(0.9 * var(--on, 0))));
+}
+.leaf-lights circle.lit { animation: crawl 1.8s ease-in-out infinite; animation-delay: calc(var(--i) * 0.14s); }
+.leaf-lights circle.next { animation: pulse 1.1s ease-in-out infinite; }
+@keyframes crawl { 0%, 100% { transform: scale(1); } 45% { transform: scale(1.45); } }
+@keyframes pulse { 0%, 100% { transform: scale(0.85); opacity: 0.2; } 50% { transform: scale(1.35); opacity: 0.85; } }
+
+.loader-line {
+  margin: 16px 0 0;
+  font-size: clamp(16px, 1.35vw, 21px);
+  font-weight: 380;
+  letter-spacing: 0.06em;
+  line-height: 1.45;
+  text-wrap: balance;
+  text-shadow: 0 1px 3px rgba(0, 0, 8, 0.8), 0 0 22px rgba(0, 0, 10, 0.6);
+  transition: opacity 0.4s var(--ease-out);
+}
+.loader-line.changing { opacity: 0; }
+.loader-retry {
+  margin-top: 12px;
+  font-size: 13px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--ink);
+  padding: 8px 2px 5px;
+  border-bottom: 1px solid var(--ink-soft);
   text-shadow: 0 1px 8px rgba(0, 0, 10, 0.7);
-  pointer-events: none;
-  white-space: nowrap;
+}
+.loader-retry:hover { border-bottom-color: var(--ink); }
+.loader-retry[hidden] { display: none; }
+.loader.failed .leaf { filter: none; opacity: 0.55; }
+.loader.failed .leaf-lights circle { animation: none; }
+
+/* While the tree arrives the subtitles and the looks wait: the leaf is the
+   one thing low in the frame, and the looks rise once the tree is lit. */
+body.is-loading .subtitles { visibility: hidden; }
+body.is-loading .looks { opacity: 0; transform: translateY(10px); visibility: hidden; }
+
+/* Quiet notes (how to look around; that the views are recorded): in the
+   subtitles' place once they have played, so they too have their own room. */
+.hint {
+  grid-area: 1 / 1;
+  align-self: end;
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  text-wrap: balance;
+  text-shadow: 0 1px 3px rgba(0, 0, 8, 0.8), 0 0 14px rgba(0, 0, 10, 0.7);
+  opacity: 0;
   transition: opacity 1.2s var(--ease-out);
 }
-.hint { top: calc(var(--gutter) + env(safe-area-inset-top) + 4.2em); opacity: 0; }
 body.show-hint .hint { opacity: 1; }
-.status { top: 50%; opacity: 0; }
-.status.shown { opacity: 1; }
 
 /* The story: a short card over the scene, not a modal. */
 .story {
@@ -385,6 +558,11 @@ body.show-hint .hint { opacity: 1; }
   font-size: 15px;
   line-height: 1.6;
   color: var(--ink-soft);
+  max-height: calc(100% - 2 * var(--gutter) - 44px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--rule) transparent;
 }
 .story[hidden] { display: none; }
 .story p { margin: 0 0 0.85em; }
@@ -424,8 +602,14 @@ body.show-hint .hint { opacity: 1; }
 
 .noscript { position: fixed; bottom: 2em; width: 100%; text-align: center; }
 
-/* Phones held upright: the row scrolls sideways under the tree and its
-   reflection; the titles shrink to fit the top. */
+/* A window too small to keep the sliders out (narrow, or short): they
+   fold behind "Adjust", and the scene keeps the room. */
+@media (max-width: 720px), (max-height: 720px) {
+  .adjust-btn:not([hidden]) { display: inline-block; }
+  .adjust { margin-top: 0.9em; }
+}
+
+/* Phones held upright: the titles shrink to fit the top; the sliders stack. */
 @media (max-width: 720px) {
   :root { --title-track: 0.28em; }
   .titles { max-width: none; right: var(--gutter); }
@@ -436,25 +620,13 @@ body.show-hint .hint { opacity: 1; }
     right: auto;
     gap: 1.1em;
   }
-  .hint { top: calc(var(--gutter) + env(safe-area-inset-top) + 112px); }
-  .story { top: calc(var(--gutter) + env(safe-area-inset-top) + 100px); bottom: auto; }
-  .story-btn { margin-left: 0.2em; padding-left: 1em; }
-  .subtitles { bottom: calc(150px + env(safe-area-inset-bottom)); }
-  .looks { left: 0; right: 0; }
-  .look-row {
-    justify-content: flex-start;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    scrollbar-width: none;
-    padding: 0 calc(50vw - 40px);
-    width: 100%;
-    gap: 26px;
-    -webkit-mask-image: linear-gradient(to right, transparent, #000 18%, #000 82%, transparent);
-    mask-image: linear-gradient(to right, transparent, #000 18%, #000 82%, transparent);
-  }
-  .look-row::-webkit-scrollbar { display: none; }
-  .look { scroll-snap-align: center; }
-  .adjust-btn:not([hidden]) { display: inline-block; }
+  .story { top: calc(var(--gutter) + env(safe-area-inset-top) + 100px); max-height: calc(100% - 2 * var(--gutter) - 100px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+  .story-btn { margin-left: 1.2em; }
+  .story-btn::before { left: -1.1em; }
+  .loader { bottom: calc(120px + env(safe-area-inset-bottom)); }
+  .loader-line { text-shadow: 0 1px 2px rgba(0, 0, 8, 0.95), 0 0 16px rgba(0, 0, 10, 0.85); }
+  .look-strip[data-more~="start"] { --fade-start: 44px; }
+  .look-strip[data-more~="end"] { --fade-end: 44px; }
   /* The controls sit on the brightest part of the picture (the tree's
      reflection): a deeper, taller shade under them. */
   .scrim {
@@ -477,7 +649,50 @@ body.show-hint .hint { opacity: 1; }
   .place { font-size: 12px; }
 }
 
+/* A short window (a phone on its side, a slim browser): the label goes
+   (the row says it), and everything sits closer, so the tree keeps most of
+   the frame. */
+@media (max-height: 520px) {
+  .looks-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .look { gap: 7px; padding-top: 4px; padding-bottom: 5px; }
+  .look-line { margin-top: 0.4em; }
+  .adjust-btn { margin-top: 0.3em; padding: 4px 0; }
+  .subtitles { margin-bottom: 10px; }
+  .loader { bottom: calc(64px + env(safe-area-inset-bottom)); }
+  .leaf { width: 40px; }
+  .scrim {
+    background:
+      linear-gradient(to bottom, rgba(2, 5, 18, 0.5) 0%, rgba(2, 5, 18, 0) 26%),
+      linear-gradient(to top, rgba(2, 5, 18, 0.82) 0%, rgba(2, 5, 18, 0.5) 24%, rgba(2, 5, 18, 0) 46%);
+  }
+}
+
+/* Under a finger the small words get a taller target (44 px), without
+   moving. */
+@media (pointer: coarse) {
+  .hour-btn, .story-btn { padding-block: 13px; margin-block: -7px; }
+  .hour-btn::after { bottom: 8px; }
+  .story-btn::before { top: 9px; bottom: 9px; }
+  .adjust-btn { padding: 12px 8px 8px; margin-top: 0.3em; }
+  .story-close { padding: 12px 0 6px; }
+  .control input { height: 36px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 0.01ms !important; transition-delay: 0s !important; }
   .letterbox { display: none; }
+  /* A still leaf: its lights come on with the progress, without the crawl. */
+  .loader { animation: none; opacity: 1; }
+  body:not(.is-loading) .loader { opacity: 0; }
+  .leaf-lights circle.lit, .leaf-lights circle.next { animation: none; }
+  .leaf-lights circle.next { opacity: 0.45; }
 }

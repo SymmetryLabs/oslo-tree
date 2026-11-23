@@ -3,17 +3,40 @@
 # trunk-to-twig hierarchy, its single leaves, or its volume in space, with
 # a per-leaf texture multiplied over it (Colour channel) and a light accent
 # added on top (Structure channel). The page goes to scene k of both
-# channels together, over the channel's transition. Frost, white with pink
-# on the outer leaves, is the look of the photographs of the tree at
-# Trettenparken. No channel cycles by itself: the visitor (or, later, a
+# channels together, over the channel's transition. Starlings comes first:
+# the page opens on it, at night. Frost, white with pink on the outer
+# leaves, is the look of the photographs of the tree at Trettenparken. No channel cycles by itself: the visitor (or, later, a
 # public vote) chooses. Every look, drawn in its setting: cargo run
-# --release -p li-oslo-site --example oslo_render -- --look 0,1,2,3,4,5,6,7
+# --release -p li-oslo-site --example oslo_render -- --look 0,1,2,3,4,5,6,7,8
 
 format = 2
 
 [[channel]]
 name = "Colour"
 transition = 5.0
+
+[[channel.scene]]
+name = "Starlings"
+id = 1000015
+[channel.scene.palette]
+name = "dusk"
+stops = [
+    { at = 0.0, color = "#06163a" },
+    { at = 0.5, color = "#14408a" },
+    { at = 1.0, color = "#3a7ad0" },
+]
+[[channel.scene.layer]]
+pattern = "../patterns/leaf_colours.wgsl"
+[channel.scene.layer.params]
+mode = "twotone"
+palette = "show"
+brightness = 0.6
+[[channel.scene.texture]]
+id = 1000025
+file = "../patterns/leaf_textures.wgsl"
+[channel.scene.texture.params]
+texture = "breathe"
+depth = 0.5
 
 [[channel.scene]]
 name = "Frost"
@@ -141,29 +164,6 @@ texture = "poisson"
 depth = 0.9
 
 [[channel.scene]]
-name = "Starlings"
-id = 1000015
-[channel.scene.palette]
-name = "dusk"
-stops = [
-    { at = 0.0, color = "#06163a" },
-    { at = 0.5, color = "#14408a" },
-    { at = 1.0, color = "#3a7ad0" },
-]
-[[channel.scene.layer]]
-pattern = "../patterns/leaf_colours.wgsl"
-[channel.scene.layer.params]
-mode = "twotone"
-palette = "show"
-brightness = 0.6
-[[channel.scene.texture]]
-id = 1000025
-file = "../patterns/leaf_textures.wgsl"
-[channel.scene.texture.params]
-texture = "breathe"
-depth = 0.5
-
-[[channel.scene]]
 name = "Lighthouse"
 id = 1000016
 [channel.scene.palette]
@@ -242,6 +242,14 @@ fader = 0.8
 transition = 5.0
 
 [[channel.scene]]
+name = "Starlings"
+[[channel.scene.layer]]
+pattern = "../patterns/starlings.wgsl"
+[channel.scene.layer.params]
+palette = "ice"
+brightness = 2.0
+
+[[channel.scene]]
 name = "Frost"
 [[channel.scene.layer]]
 pattern = "../patterns/sparkle.wgsl"
@@ -273,14 +281,6 @@ density = 0.02
 
 [[channel.scene]]
 name = "Glass"
-
-[[channel.scene]]
-name = "Starlings"
-[[channel.scene.layer]]
-pattern = "../patterns/starlings.wgsl"
-[channel.scene.layer.params]
-palette = "ice"
-brightness = 2.0
 
 [[channel.scene]]
 name = "Lighthouse"

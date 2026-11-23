@@ -1,10 +1,13 @@
 // The Oslo Tree: the page around the live scene. It opens on a still of
-// the scene (so the tree is there at once), starts the WebGPU module, and
-// fades to the live picture once it draws. Without WebGPU it shows a
-// recording and stills of each look, rendered offline by the same code.
+// the scene (so the tree is there at once) with a loading mark over it,
+// fetches the module and the tree (the mark shows how much has arrived),
+// starts WebGPU, and fades to the live picture once it draws. Without
+// WebGPU it shows a recording and stills of each look, rendered offline by
+// the same code.
 //
-// URL parameters: ?look=<id> ?sky=night ?quality=high|medium|low
-// ?recorded (force the recorded views) ?bench (measure frame time).
+// URL parameters: ?look=<id> ?sky=blue ?quality=high|medium|low|minimum
+// ?recorded (force the recorded views) ?bench (measure frame time)
+// ?stats (frame times on the page).
 
 import { createChoices } from "./choices.js";
 
@@ -14,7 +17,6 @@ const body = document.body;
 const canvas = $("live");
 const poster = $("poster");
 const recording = $("recording");
-const statusEl = $("status");
 const lookRow = $("look-row");
 const lookLine = $("look-line");
 const hint = $("hint");
@@ -22,14 +24,18 @@ const hint = $("hint");
 const state = {
   site: null,
   looks: [],
-  look: params.get("look") || "frost",
-  sky: params.get("sky") === "night" ? "night" : "blue",
+  look: params.get("look") || "starlings",
+  sky: params.get("sky") === "blue" ? "blue" : "night",
   mode: "loading", // "live" | "recorded"
   tier: 0,
   interacted: false,
 };
 
 const choices = createChoices({ endpoint: null });
+const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+// A window too small to keep the sliders out: they fold behind "Adjust"
+// (the stylesheet's own breakpoint).
+const compact = matchMedia("(max-width: 720px), (max-height: 720px)");
 
 // Quality steps, best first: the renderer's tier and the share of the
 // device's pixels drawn, capped by a pixel budget per tier.
@@ -80,19 +86,6 @@ function openFrame() {
     body.classList.remove("opening");
     body.classList.add("opened");
   });
-  const subs = [...document.querySelectorAll(".subtitle")];
-  subs.forEach((s, i) => {
-    const at = parseFloat(s.dataset.at) * 1000;
-    const next = subs[i + 1] ? parseFloat(subs[i + 1].dataset.at) * 1000 : at + 5200;
-    setTimeout(() => s.classList.add("shown"), at);
-    setTimeout(() => s.classList.remove("shown"), next - 700);
-  });
-  setTimeout(() => {
-    if (!state.interacted && state.mode !== "loading") {
-      body.classList.add("show-hint");
-      setTimeout(() => body.classList.remove("show-hint"), 6500);
-    }
-  }, 12500);
 }
 if (poster.complete) openFrame();
 else {
@@ -100,10 +93,104 @@ else {
   poster.addEventListener("error", openFrame, { once: true });
 }
 
-function showStatus(text, ms = 0) {
-  statusEl.textContent = text;
-  statusEl.classList.toggle("shown", !!text);
-  if (ms) setTimeout(() => statusEl.classList.remove("shown"), ms);
+// The subtitles follow the loading (they sit where the loading mark was),
+// no sooner than the opening's own timing.
+let subtitlesEnd = 0;
+function startSubtitles() {
+  const shift = Math.max(0, performance.now() - opened - 1600 + 900);
+  subtitlesEnd = opened + 12300 + shift;
+  const subs = [...document.querySelectorAll(".subtitle")];
+  subs.forEach((s, i) => {
+    const at = parseFloat(s.dataset.at) * 1000 + shift;
+    const next = subs[i + 1] ? parseFloat(subs[i + 1].dataset.at) * 1000 + shift : at + 5200;
+    setTimeout(() => s.classList.add("shown"), at - (performance.now() - opened));
+    setTimeout(() => s.classList.remove("shown"), next - 700 - (performance.now() - opened));
+  });
+  setTimeout(() => {
+    if (!state.interacted && state.mode === "live") {
+      body.classList.add("show-hint");
+      setTimeout(() => body.classList.remove("show-hint"), 6500);
+    }
+  }, 12500 + shift - (performance.now() - opened));
+}
+
+// ---- Loading -------------------------------------------------------------
+
+// The leaf's ten lights, in the order a leaf of the tree is wired: up its
+// left side from the stem, then down its right.
+const loader = {
+  el: $("loader"),
+  line: $("loader-line"),
+  retry: $("loader-retry"),
+  leaf: document.querySelector(".leaf"),
+  lights: [],
+  shown: 0,
+};
+{
+  const ns = "http://www.w3.org/2000/svg";
+  const rows = [44, 37, 30, 23, 16];
+  const order = [...rows.map((y) => [20.6, y]), ...[...rows].reverse().map((y) => [27.4, y])];
+  order.forEach(([x, y], i) => {
+    const c = document.createElementNS(ns, "circle");
+    c.setAttribute("cx", String(x));
+    c.setAttribute("cy", String(y));
+    c.setAttribute("r", "1.9");
+    c.style.setProperty("--i", String(i));
+    $("leaf-lights").append(c);
+    loader.lights.push(c);
+  });
+}
+
+/** Show `share` (0 to 1) of the tree as arrived. */
+function setProgress(share) {
+  const p = Math.max(loader.shown, Math.min(1, share));
+  loader.shown = p;
+  loader.leaf.style.setProperty("--p", p.toFixed(3));
+  loader.el.setAttribute("aria-valuenow", String(Math.round(p * 100)));
+  const lit = p * loader.lights.length;
+  loader.lights.forEach((c, i) => {
+    const on = Math.max(0, Math.min(1, lit - i));
+    c.style.setProperty("--on", on.toFixed(3));
+    c.classList.toggle("lit", on >= 1);
+    c.classList.toggle("next", on < 1 && i === Math.floor(lit));
+  });
+}
+setProgress(0);
+
+function setLoaderLine(text) {
+  if (loader.line.textContent === text) return;
+  loader.line.classList.add("changing");
+  setTimeout(() => {
+    loader.line.textContent = text;
+    loader.line.classList.remove("changing");
+  }, 200);
+}
+
+/** The loading is over: the mark fades with the live frame coming up. */
+function endLoading() {
+  if (!body.classList.contains("is-loading")) return;
+  setProgress(1);
+  body.classList.remove("is-loading");
+  loader.el.removeAttribute("aria-valuenow");
+  setTimeout(() => (loader.el.hidden = true), 1000);
+  startSubtitles();
+}
+
+/** The tree did not arrive: say so, with a way to try again. */
+function failLoading(retry) {
+  loader.el.classList.add("failed");
+  for (const c of loader.lights) c.classList.remove("next");
+  setLoaderLine(navigator.onLine === false
+    ? "You seem to be offline. The tree will light when you are back."
+    : "The tree didn't arrive. Check the connection and try again.");
+  loader.retry.hidden = false;
+  loader.retry.onclick = () => {
+    loader.retry.hidden = true;
+    loader.el.classList.remove("failed");
+    setLoaderLine("Lighting the tree");
+    retry();
+  };
+  if (navigator.onLine === false) addEventListener("online", () => loader.retry.click(), { once: true });
 }
 
 // ---- Looks -------------------------------------------------------------
@@ -132,6 +219,7 @@ function renderLooks() {
     }),
   );
   showLine();
+  markRowEdges();
 }
 
 function showLine() {
@@ -143,7 +231,12 @@ function showLine() {
   }, 220);
 }
 
-// On a narrow screen the row scrolls: keep the playing look in its middle.
+// Where the window is narrower than the row, the row scrolls: keep the
+// playing look in its middle, and mark each edge that has more beyond it
+// (the stylesheet fades that edge and, with a mouse, shows an arrow there).
+const lookStrip = $("look-strip");
+const rowPrev = $("row-prev");
+const rowNext = $("row-next");
 function centreLook(behavior) {
   const b = lookRow.querySelector('.look[aria-pressed="true"]');
   if (b && lookRow.scrollWidth > lookRow.clientWidth) {
@@ -151,7 +244,24 @@ function centreLook(behavior) {
     lookRow.scrollTo({ left, behavior });
   }
 }
-addEventListener("resize", () => centreLook("instant"));
+function markRowEdges() {
+  const max = lookRow.scrollWidth - lookRow.clientWidth;
+  const start = lookRow.scrollLeft > 4;
+  const end = lookRow.scrollLeft < max - 4;
+  lookStrip.dataset.more = [start && "start", end && "end"].filter(Boolean).join(" ");
+  rowPrev.hidden = !start;
+  rowNext.hidden = !end;
+}
+lookRow.addEventListener("scroll", markRowEdges, { passive: true });
+new ResizeObserver(() => {
+  centreLook("instant");
+  markRowEdges();
+}).observe(lookRow);
+for (const [button, way] of [[rowPrev, -1], [rowNext, 1]]) {
+  button.addEventListener("click", () => {
+    lookRow.scrollBy({ left: way * Math.max(160, lookRow.clientWidth * 0.6), behavior: reducedMotion.matches ? "instant" : "smooth" });
+  });
+}
 
 // The playing look's controls: thin sliders, no numbers. The site eases
 // the picture to each new position; a new look starts from its own values.
@@ -194,22 +304,21 @@ function renderControls() {
     }),
   );
   adjustBtn.hidden = false;
-  const narrow = matchMedia("(max-width: 720px)").matches;
-  adjust.hidden = narrow && adjustBtn.getAttribute("aria-expanded") !== "true";
+  adjust.hidden = compact.matches && adjustBtn.getAttribute("aria-expanded") !== "true";
 }
 adjustBtn.addEventListener("click", () => {
   const open = adjustBtn.getAttribute("aria-expanded") !== "true";
   adjustBtn.setAttribute("aria-expanded", String(open));
   adjust.hidden = !open;
 });
-matchMedia("(max-width: 720px)").addEventListener("change", renderControls);
+compact.addEventListener("change", renderControls);
 
 choices.onChoice(({ look, source }) => {
   state.look = look;
   for (const b of lookRow.querySelectorAll(".look")) {
     b.setAttribute("aria-pressed", String(b.dataset.look === look));
   }
-  centreLook(source === "visitor" ? "smooth" : "instant");
+  centreLook(source === "visitor" && !reducedMotion.matches ? "smooth" : "instant");
   showLine();
   if (state.mode === "live") {
     state.site.set_look(look);
@@ -217,6 +326,7 @@ choices.onChoice(({ look, source }) => {
     renderControls();
   }
   if (state.mode === "recorded") showRecorded();
+  if (state.mode === "loading") showStill();
   const url = new URL(location.href);
   url.searchParams.set("look", look);
   history.replaceState(null, "", url);
@@ -232,8 +342,9 @@ function setSky(sky) {
   }
   if (state.mode === "live") state.site.set_sky(sky);
   if (state.mode === "recorded") showRecorded();
+  if (state.mode === "loading") showStill();
   const url = new URL(location.href);
-  if (sky === "night") url.searchParams.set("sky", "night");
+  if (sky === "blue") url.searchParams.set("sky", "blue");
   else url.searchParams.delete("sky");
   history.replaceState(null, "", url);
 }
@@ -252,15 +363,28 @@ $("story-close").addEventListener("click", () => toggleStory(false));
 addEventListener("keydown", (e) => {
   if (e.key === "Escape" && !story.hidden) toggleStory(false);
 });
+// A press on the scene puts the card away (without moving the focus there).
+$("stage").addEventListener("pointerdown", (e) => {
+  if (!story.hidden && !e.target.closest(".story, .story-btn")) {
+    story.hidden = true;
+    storyBtn.setAttribute("aria-expanded", "false");
+  }
+});
 
 // ---- The recorded views (no WebGPU) -------------------------------------
 
-function stillUrl(look, sky) {
-  return `media/poster-${look}-${sky}.webp`;
+// Stills come wide and upright (for a screen taller than 4:5, a phone).
+const tall = matchMedia("(max-aspect-ratio: 4/5)");
+const posterTall = $("poster-tall");
+function stillUrl(look, sky, upright = tall.matches) {
+  return `media/poster-${look}-${sky}${upright ? "-tall" : ""}.webp`;
 }
 
+const DEFAULT_LOOK = "starlings";
+const DEFAULT_SKY = "night";
+
 function showRecorded() {
-  const isDefault = state.look === "frost" && state.sky === "blue";
+  const isDefault = state.look === DEFAULT_LOOK && state.sky === DEFAULT_SKY;
   if (isDefault && recording.dataset.ready) {
     recording.classList.add("playing");
     recording.play().catch(() => {});
@@ -268,13 +392,19 @@ function showRecorded() {
     recording.classList.remove("playing");
     recording.pause();
   }
+  showStill();
+}
+
+// The still of the chosen look and hour, cross-faded in once it has loaded.
+function showStill() {
   const next = stillUrl(state.look, state.sky);
-  if (!poster.src.endsWith(next)) {
+  if (!(poster.currentSrc || poster.src).endsWith(next)) {
     const img = new Image();
     img.onload = () => {
       poster.style.opacity = "0";
       setTimeout(() => {
-        poster.src = next;
+        posterTall.srcset = stillUrl(state.look, state.sky, true);
+        poster.src = stillUrl(state.look, state.sky, false);
         poster.style.opacity = "";
       }, 400);
     };
@@ -282,14 +412,23 @@ function showRecorded() {
   }
 }
 
-function startRecorded(reason) {
+function startRecorded(reason, failed = false, stopped = false) {
   state.mode = "recorded";
+  state.site = null;
+  endLoading();
+  body.classList.remove("is-live");
   body.classList.add("is-recorded");
   canvas.hidden = true;
-  hint.textContent = "Recorded views. Open in a browser with WebGPU to see it live.";
-  body.classList.add("show-hint");
+  renderControls();
+  // The note takes the subtitles' place once they have played.
+  hint.textContent = stopped
+    ? "The live tree stopped. These are recorded views."
+    : failed
+    ? "The live tree couldn't start in this browser. These are recorded views."
+    : "Recorded views. Open in a browser with WebGPU to see it live.";
+  setTimeout(() => body.classList.add("show-hint"), Math.max(0, subtitlesEnd - performance.now()));
   const source = document.createElement("source");
-  source.src = "media/drift-frost-blue.mp4";
+  source.src = `media/drift-${DEFAULT_LOOK}-${DEFAULT_SKY}.mp4`;
   source.type = "video/mp4";
   recording.append(source);
   recording.preload = "auto";
@@ -308,16 +447,101 @@ function startRecorded(reason) {
 
 // ---- The live scene ----------------------------------------------------
 
+// Everything the tree needs before it can light, fetched here so the mark
+// can show how much has arrived: the share of each file's bytes read,
+// weighted by its size as gzip (about what crosses the network), from the
+// sizes the build wrote into manifest.json. Kept across a retry.
+const fetched = {};
+let wasmBytes = null;
+
+class NetworkError extends Error {}
+
+// Fetch `url`, calling `progress(bytesRead)` as it streams; gives up if no
+// bytes arrive for 30 s.
+async function fetchBytes(url, progress) {
+  const abort = new AbortController();
+  let stall = setTimeout(() => abort.abort(), 30000);
+  try {
+    const response = await fetch(url, { signal: abort.signal });
+    if (!response.ok) throw new NetworkError(`${url}: HTTP ${response.status}`);
+    if (!response.body) {
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      progress(bytes.length);
+      return bytes;
+    }
+    const reader = response.body.getReader();
+    const chunks = [];
+    let read = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      read += value.length;
+      progress(read);
+      clearTimeout(stall);
+      stall = setTimeout(() => abort.abort(), 30000);
+    }
+    const bytes = new Uint8Array(read);
+    let at = 0;
+    for (const c of chunks) {
+      bytes.set(c, at);
+      at += c.length;
+    }
+    return bytes;
+  } catch (e) {
+    throw e instanceof NetworkError ? e : new NetworkError(`${url}: ${e?.message ?? e}`);
+  } finally {
+    clearTimeout(stall);
+  }
+}
+
+async function fetchTree() {
+  if (!fetched["manifest.json"]) fetched["manifest.json"] = await fetchBytes("manifest.json", () => {});
+  const manifest = JSON.parse(new TextDecoder().decode(fetched["manifest.json"]));
+  const sizes = manifest.sizes ?? {};
+  const wanted = Object.keys(sizes);
+  const total = wanted.reduce((s, f) => s + sizes[f][1], 0) || 1;
+  const share = Object.fromEntries(wanted.map((f) => [f, f in fetched || (f.endsWith(".wasm") && wasmBytes) ? 1 : 0]));
+  const report = () => setProgress(0.9 * wanted.reduce((s, f) => s + share[f] * sizes[f][1], 0) / total);
+  report();
+  const glue = import("./li_oslo_site.js").catch((e) => {
+    throw new NetworkError(String(e));
+  });
+  glue.catch(() => {});
+  await Promise.all(
+    wanted.map(async (f) => {
+      if (share[f] === 1) return;
+      const bytes = await fetchBytes(f, (n) => {
+        share[f] = Math.min(1, n / sizes[f][0]);
+        report();
+      });
+      if (f.endsWith(".wasm")) wasmBytes = bytes;
+      else fetched[f] = bytes;
+      share[f] = 1;
+      report();
+    }),
+  );
+  return glue;
+}
+
 async function startLive() {
-  const { default: init, Site } = await import("./li_oslo_site.js");
-  await init();
+  const { default: init, Site } = await fetchTree();
+  setLoaderLine("Almost there");
+  await init(wasmBytes ? { module_or_path: wasmBytes } : undefined);
+  wasmBytes = null;
   state.tier = startingTier();
   const [w, h] = canvasSize(state.tier);
   canvas.width = w;
   canvas.height = h;
-  const site = await Site.create(canvas, TIERS[state.tier].quality, state.look, params.has("profile"));
+  const site = await Site.create(canvas, TIERS[state.tier].quality, state.look, params.has("profile"), fetched);
+  for (const k of Object.keys(fetched)) delete fetched[k];
   state.site = site;
-  if (state.sky === "night") site.set_sky("night");
+  if (!state.looks.length) {
+    // looks.json did not arrive: the module carries the same list.
+    state.looks = JSON.parse(Site.looks());
+    renderLooks();
+  }
+  site.set_sky(state.sky);
   if (params.has("debug")) site.set_debug(params.get("debug"));
   if (params.has("orbit")) {
     const [a, e, d] = params.get("orbit").split(",").map(Number);
@@ -344,13 +568,38 @@ async function startLive() {
   };
   bindPointer();
   renderControls();
-  addEventListener("resize", resize);
+  addEventListener("resize", () => (resizeAt = performance.now()));
+  matchMedia("(resolution: 1dppx)").addEventListener("change", () => (resizeAt = performance.now()));
   if (params.has("bench")) await bench(site);
   let frames = 0;
   const loop = () => {
-    site.frame();
+    if (state.site !== site) return;
+    // A frame that throws (the module trapped), a lost GPU device, or
+    // frame after frame failing to draw ends the live scene.
+    let failure;
+    try {
+      // The canvas takes the window's new size once it has held it for a
+      // moment (the stylesheet stretches the picture meanwhile): resizing
+      // on every event of a drag would rebuild every render target each time.
+      if (resizeAt && performance.now() - resizeAt > 120) {
+        resizeAt = 0;
+        resize();
+      }
+      site.frame();
+      failure = site.failure();
+    } catch (e) {
+      failure = String(e);
+    }
+    if (failure) {
+      liveFailed(failure);
+      return;
+    }
     frames += 1;
-    if (frames === 3) body.classList.add("is-live");
+    if (frames === 3) {
+      body.classList.add("is-live");
+      endLoading();
+      window.osloLoadMs = performance.now() - opened;
+    }
     adapt();
     updateStats(performance.now());
     requestAnimationFrame(loop);
@@ -358,6 +607,34 @@ async function startLive() {
   requestAnimationFrame(loop);
 }
 
+// The live scene stopped. A lost GPU device usually comes back, so start
+// the page afresh once (its files are cached, and the still covers the
+// gap), when the page is next looked at; if it stops again within a
+// minute, or the page cannot remember that it tried, show the recorded
+// views instead.
+function liveFailed(reason) {
+  console.error("The Oslo Tree: the live scene stopped:", reason);
+  state.site = null;
+  let again = false;
+  try {
+    const last = Number(sessionStorage.getItem("oslo-relit")) || 0;
+    if (Date.now() - last > 60000) {
+      sessionStorage.setItem("oslo-relit", String(Date.now()));
+      again = true;
+    }
+  } catch {
+    again = false;
+  }
+  if (!again) {
+    startRecorded(reason, true, true);
+    return;
+  }
+  body.classList.remove("is-live");
+  if (document.hidden) addEventListener("visibilitychange", () => location.reload(), { once: true });
+  else location.reload();
+}
+
+let resizeAt = 0;
 function resize() {
   if (!state.site) return;
   const [w, h] = canvasSize(state.tier);
@@ -368,28 +645,34 @@ function resize() {
   }
 }
 
-// Step down while the frame rate is under 50 (two steps under 32), after
-// 2.5 s to settle, judged every 1.5 s. Never steps back up within a visit.
-const adaptState = { since: 0, frames: 0, start: 0 };
+// Step down while the frame rate is under 50 (two steps under 32), judged
+// every 1.5 s, and only on steady frames: a gap of over 250 ms between two
+// frames, or a hidden page, means the browser paused or throttled the
+// page (a background tab, a tab Chrome slows while still calling it
+// visible), not that the tree is slow, so it discards the window and waits
+// for 2.5 s of steady frames again. Never steps back up within a visit.
+const adaptState = { last: 0, steady: 0, since: 0, frames: 0 };
 function adapt() {
   if (params.has("quality")) return;
   const now = performance.now();
-  if (!adaptState.start) {
-    adaptState.start = now;
-    adaptState.since = now;
-    return;
-  }
-  adaptState.frames += 1;
-  if (now - adaptState.start < 2500) {
+  const gap = adaptState.last ? now - adaptState.last : Infinity;
+  adaptState.last = now;
+  if (gap > 250 || document.hidden) {
+    adaptState.steady = now;
     adaptState.since = now;
     adaptState.frames = 0;
     return;
   }
+  if (now - adaptState.steady < 2500) {
+    adaptState.since = now;
+    adaptState.frames = 0;
+    return;
+  }
+  adaptState.frames += 1;
   if (now - adaptState.since < 1500) return;
   const fps = (adaptState.frames * 1000) / (now - adaptState.since);
   adaptState.since = now;
   adaptState.frames = 0;
-  if (document.hidden) return;
   if (fps < 50 && state.tier < TIERS.length - 1) {
     const before = TIERS[state.tier].quality;
     state.tier = Math.min(TIERS.length - 1, state.tier + (fps < 32 ? 2 : 1));
@@ -452,7 +735,7 @@ function bindPointer() {
     const p = pointers.get(e.pointerId);
     if (!p) return;
     if (pointers.size === 1) {
-      state.site.drag(e.clientX - p.x, e.clientY - p.y, innerHeight);
+      state.site?.drag(e.clientX - p.x, e.clientY - p.y, innerHeight);
     } else if (pointers.size === 2) {
       const [a, b] = [...pointers.values()];
       const d0 = Math.hypot(a.x - b.x, a.y - b.y);
@@ -460,7 +743,7 @@ function bindPointer() {
       p.y = e.clientY;
       const [c, d] = [...pointers.values()];
       const d1 = Math.hypot(c.x - d.x, c.y - d.y);
-      if (d0 > 0 && pinch) state.site.zoom(d1 / d0);
+      if (d0 > 0 && pinch) state.site?.zoom(d1 / d0);
       pinch = 1;
       return;
     }
@@ -473,16 +756,27 @@ function bindPointer() {
   };
   canvas.addEventListener("pointerup", up);
   canvas.addEventListener("pointercancel", up);
-  canvas.addEventListener(
+  // The wheel comes closer anywhere on the page (the names and sliders
+  // lie over the scene), except where it has something to scroll: the
+  // story card, and the row of looks under a sideways wheel. A trackpad's
+  // pinch arrives as a wheel with ctrl held, in smaller steps.
+  $("stage").addEventListener(
     "wheel",
     (e) => {
+      if (!state.site || e.target.closest(".story")) return;
+      const sideways = Math.abs(e.deltaX) > Math.abs(e.deltaY);
+      if (sideways && e.target.closest(".look-row")) return;
       e.preventDefault();
       interacted();
-      state.site.zoom(Math.exp(-e.deltaY * 0.0015));
+      const lines = e.deltaMode === 1 ? 16 : 1;
+      // Two fingers sideways on a trackpad turn the scene, as a drag does.
+      if (sideways) state.site.drag(-e.deltaX * lines * 0.6, 0, innerHeight);
+      else state.site.zoom(Math.exp(-e.deltaY * lines * (e.ctrlKey ? 0.012 : 0.0015)));
     },
     { passive: false },
   );
   canvas.addEventListener("keydown", (e) => {
+    if (!state.site) return;
     const step = { ArrowLeft: [-40, 0], ArrowRight: [40, 0], ArrowUp: [0, -30], ArrowDown: [0, 30] }[e.key];
     if (step) {
       e.preventDefault();
@@ -490,6 +784,13 @@ function bindPointer() {
       state.site.drag(step[0], step[1], innerHeight);
     } else if (e.key === "+" || e.key === "=") state.site.zoom(1.12);
     else if (e.key === "-") state.site.zoom(1 / 1.12);
+  });
+  // With the keyboard on the scene, say what the keys do.
+  canvas.addEventListener("focus", () => {
+    if (!canvas.matches(":focus-visible") || state.mode !== "live" || performance.now() < subtitlesEnd) return;
+    hint.textContent = "Arrow keys to look around, + and − to come closer";
+    body.classList.add("show-hint");
+    setTimeout(() => body.classList.remove("show-hint"), 6500);
   });
 }
 
@@ -517,15 +818,20 @@ async function bench(site) {
 
 (async () => {
   try {
-    state.looks = await (await fetch("looks.json")).json();
+    const response = await fetch("looks.json");
+    if (!response.ok) throw new Error(`looks.json: HTTP ${response.status}`);
+    state.looks = await response.json();
   } catch {
     state.looks = [];
   }
-  if (!state.looks.some((l) => l.id === state.look)) state.look = state.looks[0]?.id ?? "frost";
+  if (!state.looks.some((l) => l.id === state.look)) state.look = state.looks[0]?.id ?? DEFAULT_LOOK;
   renderLooks();
   choices.choose(state.look, params.has("look") ? "link" : "default");
   setSky(state.sky);
-  if (state.sky !== "blue" || state.look !== "frost") poster.src = stillUrl(state.look, state.sky);
+  if (state.sky !== DEFAULT_SKY || state.look !== DEFAULT_LOOK) {
+    posterTall.srcset = stillUrl(state.look, state.sky, true);
+    poster.src = stillUrl(state.look, state.sky, false);
+  }
 
   let adapter = null;
   if (!params.has("recorded") && navigator.gpu) {
@@ -539,15 +845,14 @@ async function bench(site) {
     startRecorded(navigator.gpu ? "no adapter" : "no WebGPU");
     return;
   }
-  const slow = setTimeout(() => showStatus("Lighting the tree"), 2500);
-  try {
-    await startLive();
-  } catch (e) {
-    console.error(e);
-    startRecorded(String(e));
-  } finally {
-    clearTimeout(slow);
-    showStatus("");
-  }
-  window.osloLoadMs = performance.now() - opened;
+  const attempt = async () => {
+    try {
+      await startLive();
+    } catch (e) {
+      console.error(e);
+      if (e instanceof NetworkError) failLoading(attempt);
+      else startRecorded(String(e), true);
+    }
+  };
+  await attempt();
 })();

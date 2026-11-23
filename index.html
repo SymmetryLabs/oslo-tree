@@ -8,18 +8,50 @@
 <meta name="theme-color" content="#050a1c">
 <meta property="og:title" content="The Oslo Tree">
 <meta property="og:description" content="Fourteen metres of light on the Oslo fjord. Choose what it plays.">
-<meta property="og:image" content="media/poster-frost-blue.jpg">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://symmetrylabs.github.io/oslo-tree/">
+<!-- Link previews need the picture's whole address: change both with the host. -->
+<meta property="og:image" content="https://symmetrylabs.github.io/oslo-tree/media/poster-starlings-night.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="675">
+<meta property="og:image:alt" content="The Oslo tree at night beside the harbour, its leaves deep blue and white, reflected in the fjord">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="preload" href="fonts/jost-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="media/poster-frost-blue.webp" as="image">
+<link rel="preload" href="media/poster-starlings-night.webp" as="image" media="(min-aspect-ratio: 4/5)">
+<link rel="preload" href="media/poster-starlings-night-tall.webp" as="image" media="(max-aspect-ratio: 4/5)">
+<link rel="preload" href="manifest.json" as="fetch" crossorigin>
 <link rel="stylesheet" href="site.css">
 </head>
-<body class="opening">
+<body class="opening is-loading">
 <main class="stage" id="stage">
-  <img class="poster" id="poster" src="media/poster-frost-blue.webp" alt="The Oslo tree glowing white and pink at blue hour, beside the harbour at Filipstad, its light reflected in the fjord">
+  <picture>
+    <source id="poster-tall" media="(max-aspect-ratio: 4/5)" srcset="media/poster-starlings-night-tall.webp">
+    <img class="poster" id="poster" src="media/poster-starlings-night.webp" alt="The Oslo tree at night beside the harbour at Filipstad, its leaves deep blue with white light turning through them, reflected in the fjord">
+  </picture>
   <video class="recording" id="recording" muted loop playsinline preload="none" aria-hidden="true" tabindex="-1"></video>
-  <canvas class="live" id="live" tabindex="0" aria-label="The Oslo tree, live. Drag to look around; scroll or pinch to come closer."></canvas>
+  <canvas class="live" id="live" tabindex="0" role="img" aria-label="The Oslo tree, live. Drag or use the arrow keys to look around; scroll, pinch or press plus and minus to come closer."></canvas>
   <div class="letterbox" aria-hidden="true"><span></span><span></span></div>
   <div class="scrim" aria-hidden="true"></div>
+
+  <!-- Loading: one of the tree's leaves, its ten lights coming on in the
+       order they are wired as the tree arrives. -->
+  <div class="loader" id="loader" role="progressbar" aria-label="Lighting the tree" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+    <svg class="leaf" viewBox="0 0 48 64" aria-hidden="true">
+      <defs>
+        <radialGradient id="leaf-glow" cx="50%" cy="48%" r="50%">
+          <stop offset="0" stop-color="#e9f0ff" stop-opacity="0.85"/>
+          <stop offset="0.55" stop-color="#9fb8ff" stop-opacity="0.28"/>
+          <stop offset="1" stop-color="#6d8cff" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <path class="leaf-fill" d="M24 5C35 17 35.5 40 24 54C12.5 40 13 17 24 5Z"/>
+      <path class="leaf-edge" d="M24 5C35 17 35.5 40 24 54C12.5 40 13 17 24 5ZM24 54V61"/>
+      <g class="leaf-lights" id="leaf-lights"></g>
+    </svg>
+    <p class="loader-line" id="loader-line">Lighting the tree</p>
+    <button type="button" class="loader-retry" id="loader-retry" hidden>Try again</button>
+  </div>
 
   <header class="titles">
     <h1 class="title">The Oslo Tree</h1>
@@ -27,26 +59,36 @@
   </header>
 
   <nav class="hour" aria-label="Time of day">
-    <button type="button" class="hour-btn" data-sky="blue" aria-pressed="true">Blue hour</button>
-    <button type="button" class="hour-btn" data-sky="night" aria-pressed="false">Night</button>
+    <button type="button" class="hour-btn" data-sky="blue" aria-pressed="false">Blue hour</button>
+    <button type="button" class="hour-btn" data-sky="night" aria-pressed="true">Night</button>
     <button type="button" class="story-btn" id="story-btn" aria-expanded="false" aria-controls="story">The tree</button>
   </nav>
 
-  <div class="subtitles" aria-live="polite">
-    <p class="subtitle" data-at="1.6">Fourteen metres of light, standing by the water at Filipstad.</p>
-    <p class="subtitle" data-at="6.4">Grown from the memory of the Ténéré's lone acacia, it first stood in a desert.</p>
+  <!-- Everything low in the frame, in one column, so the captions, the
+       looks and their controls take their own room at any size. -->
+  <div class="dock">
+    <div class="subtitles">
+      <p class="subtitle" data-at="1.6">Fourteen metres of light, standing by the water at Filipstad.</p>
+      <p class="subtitle" data-at="6.4">Grown from the memory of the Ténéré's lone acacia, it first stood in a desert.</p>
+      <p class="hint" id="hint" role="status">Drag to look around</p>
+    </div>
+
+    <section class="looks" id="looks" aria-labelledby="looks-label">
+      <h2 class="looks-label" id="looks-label">Choose what it plays</h2>
+      <div class="look-strip" id="look-strip">
+        <button type="button" class="row-nav" id="row-prev" aria-label="Earlier looks" tabindex="-1" hidden>
+          <svg viewBox="0 0 12 20" aria-hidden="true"><path d="M9 3 3 10l6 7"/></svg>
+        </button>
+        <div class="look-row" id="look-row" role="group" aria-labelledby="looks-label"></div>
+        <button type="button" class="row-nav" id="row-next" aria-label="More looks" tabindex="-1" hidden>
+          <svg viewBox="0 0 12 20" aria-hidden="true"><path d="m3 3 6 7-6 7"/></svg>
+        </button>
+      </div>
+      <p class="look-line" id="look-line" aria-live="polite"></p>
+      <button type="button" class="adjust-btn" id="adjust-btn" aria-expanded="false" aria-controls="adjust" hidden>Adjust</button>
+      <div class="adjust" id="adjust" role="group" aria-label="Adjust the look" hidden></div>
+    </section>
   </div>
-
-  <section class="looks" aria-labelledby="looks-label">
-    <h2 class="looks-label" id="looks-label">Choose what it plays</h2>
-    <div class="look-row" id="look-row" role="group" aria-labelledby="looks-label"></div>
-    <p class="look-line" id="look-line" aria-live="polite"></p>
-    <button type="button" class="adjust-btn" id="adjust-btn" aria-expanded="false" aria-controls="adjust" hidden>Adjust</button>
-    <div class="adjust" id="adjust" role="group" aria-label="Adjust the look" hidden></div>
-  </section>
-
-  <p class="hint" id="hint">Drag to look around</p>
-  <p class="status" id="status" role="status"></p>
 
   <aside class="story" id="story" hidden aria-labelledby="story-title">
     <h2 class="story-title" id="story-title">The tree</h2>

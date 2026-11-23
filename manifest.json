@@ -19,5 +19,63 @@
   "patterns/spheres.wgsl",
   "patterns/starlings.wgsl",
   "patterns/tree_beams.wgsl"
- ]
+ ],
+ "sizes": {
+  "li_oslo_site_bg.wasm": [
+   2906065,
+   1107964
+  ],
+  "shows/oslo-tree/points.q16": [
+   892828,
+   359178
+  ],
+  "shows/oslo-tree/show.json": [
+   3869410,
+   121674
+  ],
+  "demos/oslo.toml": [
+   6792,
+   1504
+  ],
+  "patterns/branches.wgsl": [
+   10979,
+   4366
+  ],
+  "patterns/crystalline.wgsl": [
+   12162,
+   4786
+  ],
+  "patterns/frost.wgsl": [
+   2489,
+   1130
+  ],
+  "patterns/growth.wgsl": [
+   9969,
+   3829
+  ],
+  "patterns/leaf_colours.wgsl": [
+   8942,
+   3634
+  ],
+  "patterns/leaf_textures.wgsl": [
+   13593,
+   5230
+  ],
+  "patterns/sparkle.wgsl": [
+   9859,
+   3977
+  ],
+  "patterns/spheres.wgsl": [
+   10239,
+   4064
+  ],
+  "patterns/starlings.wgsl": [
+   9416,
+   3639
+  ],
+  "patterns/tree_beams.wgsl": [
+   12022,
+   4664
+  ]
+ }
 }
