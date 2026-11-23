@@ -1,0 +1,23 @@
+{
+ "show": {
+  "dir": "shows/oslo-tree",
+  "files": [
+   "points.q16",
+   "show.json"
+  ]
+ },
+ "mixer": "demos/oslo.toml",
+ "files": [
+  "demos/oslo.toml",
+  "patterns/branches.wgsl",
+  "patterns/crystalline.wgsl",
+  "patterns/frost.wgsl",
+  "patterns/growth.wgsl",
+  "patterns/leaf_colours.wgsl",
+  "patterns/leaf_textures.wgsl",
+  "patterns/sparkle.wgsl",
+  "patterns/spheres.wgsl",
+  "patterns/starlings.wgsl",
+  "patterns/tree_beams.wgsl"
+ ]
+}

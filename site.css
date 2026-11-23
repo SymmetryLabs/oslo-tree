@@ -1,0 +1,483 @@
+/* The Oslo Tree: an opening shot. The scene is the page; the type is set
+   like a film's titles over it, and the controls sit low like a credit row. */
+
+@font-face {
+  font-family: "Jost";
+  src: url("fonts/jost-latin-wght-normal.woff2") format("woff2");
+  font-weight: 200 700;
+  font-display: swap;
+}
+
+:root {
+  --night: #04081a;
+  --ink: #f4f6fb;
+  --ink-soft: rgba(226, 233, 250, 0.86);
+  --ink-quiet: rgba(214, 224, 248, 0.7);
+  --frost-pink: #ff9fc2;
+  --rule: rgba(222, 232, 255, 0.22);
+  --shade: rgba(2, 5, 18, 0.62);
+  --gutter: clamp(16px, 3.4vw, 48px);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --title-track: 0.34em;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--night);
+  color: var(--ink);
+  font-family: "Jost", "Futura", "Avenir Next", system-ui, sans-serif;
+  font-weight: 340;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+::selection { background: var(--frost-pink); color: var(--night); }
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 1px solid var(--ink);
+  outline-offset: 5px;
+  border-radius: 2px;
+}
+
+/* The frame. */
+.stage {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: var(--night);
+}
+
+.poster, .recording, .live {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.poster { transition: opacity 1.6s var(--ease-out); }
+.recording { opacity: 0; transition: opacity 1.2s var(--ease-out); }
+.live {
+  opacity: 0;
+  transition: opacity 1.4s var(--ease-out);
+  touch-action: none;
+  cursor: grab;
+  outline: none;
+}
+.live:active { cursor: grabbing; }
+
+body.is-live .live { opacity: 1; }
+body.is-live .poster { opacity: 0; }
+body.is-recorded .recording.playing { opacity: 1; }
+
+/* The opening: the frame opens out of a letterbox. */
+.letterbox span {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 13vh;
+  background: #000;
+  transform-origin: top;
+  transition: transform 2.6s var(--ease-out) 0.3s;
+  pointer-events: none;
+}
+.letterbox span:first-child { top: 0; }
+.letterbox span:last-child { bottom: 0; transform-origin: bottom; }
+body.opened .letterbox span { transform: scaleY(0); }
+
+/* A shade under the type, so the words read over any frame. */
+.scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(to bottom, rgba(2, 5, 18, 0.5) 0%, rgba(2, 5, 18, 0) 22%),
+    linear-gradient(to top, rgba(2, 5, 18, 0.74) 0%, rgba(2, 5, 18, 0.38) 18%, rgba(2, 5, 18, 0) 38%);
+}
+
+/* Titles. */
+.titles {
+  position: absolute;
+  top: calc(var(--gutter) + env(safe-area-inset-top));
+  left: calc(var(--gutter) + env(safe-area-inset-left));
+  max-width: min(36rem, 60vw);
+  text-shadow: 0 1px 14px rgba(0, 0, 10, 0.55);
+}
+
+.title {
+  margin: 0;
+  font-weight: 460;
+  font-size: clamp(15px, 1.25vw, 19px);
+  letter-spacing: var(--title-track);
+  text-transform: uppercase;
+  line-height: 1.2;
+  transition: letter-spacing 3.2s var(--ease-out) 0.5s, opacity 2s var(--ease-out) 0.5s;
+}
+
+.place {
+  margin: 0.7em 0 0;
+  font-size: clamp(13px, 0.95vw, 15px);
+  letter-spacing: 0.03em;
+  color: var(--ink-soft);
+  transition: opacity 2s var(--ease-out) 1.4s;
+}
+.sep { padding: 0 0.6em; color: var(--ink-quiet); }
+
+body.opening .title { letter-spacing: 0.62em; opacity: 0; }
+body.opening .place { opacity: 0; }
+
+/* Time of day and the story. */
+.hour {
+  position: absolute;
+  top: calc(var(--gutter) + env(safe-area-inset-top) - 6px);
+  right: calc(var(--gutter) + env(safe-area-inset-right));
+  display: flex;
+  align-items: baseline;
+  gap: 1.4em;
+  font-size: clamp(13px, 0.95vw, 15px);
+  letter-spacing: 0.04em;
+  text-shadow: 0 1px 12px rgba(0, 0, 10, 0.55);
+  transition: opacity 2s var(--ease-out) 2.2s;
+}
+body.opening .hour { opacity: 0; }
+
+.hour-btn, .story-btn {
+  position: relative;
+  padding: 6px 0;
+  color: var(--ink-quiet);
+  transition: color 0.4s var(--ease-out);
+}
+.hour-btn:hover, .story-btn:hover { color: var(--ink); }
+.hour-btn[aria-pressed="true"] { color: var(--ink); }
+.hour-btn::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 1px;
+  height: 1px;
+  background: var(--ink);
+  transform: scaleX(0);
+  transition: transform 0.6s var(--ease-out);
+}
+.hour-btn[aria-pressed="true"]::after { transform: scaleX(1); }
+.story-btn {
+  margin-left: 0.6em;
+  padding-left: 1.6em;
+  border-left: 1px solid var(--rule);
+}
+.story-btn[aria-expanded="true"] { color: var(--ink); }
+
+/* Opening subtitles, as a film sets them. */
+.subtitles {
+  position: absolute;
+  left: 50%;
+  bottom: calc(clamp(150px, 21vh, 210px) + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: min(44rem, calc(100vw - 2 * var(--gutter)));
+  text-align: center;
+  pointer-events: none;
+}
+.subtitle {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0;
+  font-size: clamp(16px, 1.45vw, 22px);
+  font-weight: 360;
+  line-height: 1.45;
+  letter-spacing: 0.01em;
+  text-wrap: balance;
+  text-shadow: 0 1px 3px rgba(0, 0, 8, 0.7), 0 0 22px rgba(0, 0, 10, 0.5);
+  opacity: 0;
+  filter: blur(6px);
+  transform: translateY(6px);
+  transition: opacity 1.4s var(--ease-out), filter 1.4s var(--ease-out), transform 1.4s var(--ease-out);
+}
+.subtitle.shown { opacity: 1; filter: blur(0); transform: none; }
+
+/* The looks: a credit row of names, each with its colours. */
+.looks {
+  position: absolute;
+  left: calc(var(--gutter) + env(safe-area-inset-left));
+  right: calc(var(--gutter) + env(safe-area-inset-right));
+  bottom: calc(var(--gutter) + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  transition: opacity 1.8s var(--ease-out), transform 1.8s var(--ease-out);
+}
+body.opening .looks { opacity: 0; transform: translateY(10px); }
+
+.looks-label {
+  margin: 0 0 1.1em;
+  font-weight: 480;
+  font-size: 12px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--ink-quiet);
+}
+
+.look-row {
+  display: flex;
+  justify-content: center;
+  gap: clamp(18px, 2.6vw, 40px);
+  max-width: 100%;
+}
+
+.look {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 2px 8px;
+  color: var(--ink-quiet);
+  font-size: clamp(15px, 1.1vw, 17px);
+  font-weight: 380;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  text-shadow: 0 1px 10px rgba(0, 0, 10, 0.6);
+  transition: color 0.5s var(--ease-out);
+}
+.look:hover { color: var(--ink-soft); }
+.look[aria-pressed="true"] { color: var(--ink); }
+
+.swatch {
+  display: block;
+  width: 30px;
+  height: 3px;
+  border-radius: 2px;
+  opacity: 0.7;
+  transition: width 0.7s var(--ease-out), opacity 0.5s var(--ease-out), height 0.7s var(--ease-out);
+}
+.look:hover .swatch { opacity: 0.95; }
+.look[aria-pressed="true"] .swatch { width: 56px; height: 4px; opacity: 1; }
+
+.look-line {
+  margin: 1em 0 0;
+  min-height: 1.5em;
+  font-size: clamp(13px, 0.95vw, 15px);
+  color: var(--ink-soft);
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 10px rgba(0, 0, 10, 0.6);
+  transition: opacity 0.5s var(--ease-out);
+}
+.look-line.changing { opacity: 0; }
+
+/* The look's controls: three thin sliders, labels above, no numbers. */
+.adjust {
+  display: flex;
+  justify-content: center;
+  gap: clamp(20px, 3vw, 44px);
+  margin-top: 1.1em;
+}
+.adjust[hidden] { display: none; }
+.control {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-quiet);
+  text-shadow: 0 1px 8px rgba(0, 0, 10, 0.7);
+}
+.control input {
+  -webkit-appearance: none;
+  appearance: none;
+  width: clamp(96px, 9vw, 140px);
+  height: 18px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  --fill: 50%;
+}
+.control input::-webkit-slider-runnable-track {
+  height: 1px;
+  background: linear-gradient(to right, var(--ink-soft) var(--fill), var(--rule) var(--fill));
+}
+.control input::-moz-range-track {
+  height: 1px;
+  background: linear-gradient(to right, var(--ink-soft) var(--fill), var(--rule) var(--fill));
+}
+.control input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 11px;
+  height: 11px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: var(--ink);
+  box-shadow: 0 1px 6px rgba(0, 0, 10, 0.6);
+  transition: transform 0.3s var(--ease-out);
+}
+.control input::-moz-range-thumb {
+  width: 11px;
+  height: 11px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--ink);
+}
+.control input:hover::-webkit-slider-thumb,
+.control input:focus-visible::-webkit-slider-thumb { transform: scale(1.25); }
+.control input:focus-visible { outline: 1px solid var(--ink-soft); outline-offset: 4px; }
+.control:hover, .control:focus-within { color: var(--ink-soft); }
+.adjust-btn {
+  display: none;
+  margin-top: 0.9em;
+  font-size: 12px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--ink-quiet);
+  padding: 6px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.adjust-btn[aria-expanded="true"] { color: var(--ink); }
+
+/* Quiet notes. */
+.hint, .status {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  color: var(--ink-quiet);
+  text-shadow: 0 1px 8px rgba(0, 0, 10, 0.7);
+  pointer-events: none;
+  white-space: nowrap;
+  transition: opacity 1.2s var(--ease-out);
+}
+.hint { top: calc(var(--gutter) + env(safe-area-inset-top) + 4.2em); opacity: 0; }
+body.show-hint .hint { opacity: 1; }
+.status { top: 50%; opacity: 0; }
+.status.shown { opacity: 1; }
+
+/* The story: a short card over the scene, not a modal. */
+.story {
+  position: absolute;
+  top: calc(var(--gutter) + env(safe-area-inset-top) + 44px);
+  right: calc(var(--gutter) + env(safe-area-inset-right));
+  width: min(25rem, calc(100vw - 2 * var(--gutter)));
+  padding: 26px 28px 22px;
+  background: rgba(4, 9, 28, 0.78);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  backdrop-filter: blur(18px) saturate(1.2);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  box-shadow: 0 18px 50px rgba(0, 0, 8, 0.45);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+.story[hidden] { display: none; }
+.story p { margin: 0 0 0.85em; }
+.story-title {
+  margin: 0 0 1em;
+  font-weight: 460;
+  font-size: 12px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.story-note { font-size: 13px; color: var(--ink-quiet); }
+.story-close {
+  margin-top: 0.4em;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  color: var(--ink-quiet);
+  padding: 4px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.story-close:hover { color: var(--ink); }
+
+.stats {
+  position: fixed;
+  left: 12px;
+  top: 50%;
+  margin: 0;
+  padding: 10px 12px;
+  font: 12px/1.5 ui-monospace, "SF Mono", Menlo, monospace;
+  color: #e8eefc;
+  background: rgba(2, 5, 18, 0.72);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.noscript { position: fixed; bottom: 2em; width: 100%; text-align: center; }
+
+/* Phones held upright: the row scrolls sideways under the tree and its
+   reflection; the titles shrink to fit the top. */
+@media (max-width: 720px) {
+  :root { --title-track: 0.28em; }
+  .titles { max-width: none; right: var(--gutter); }
+  .place .where { display: none; }
+  .hour {
+    top: calc(var(--gutter) + env(safe-area-inset-top) + 58px);
+    left: calc(var(--gutter) + env(safe-area-inset-left));
+    right: auto;
+    gap: 1.1em;
+  }
+  .hint { top: calc(var(--gutter) + env(safe-area-inset-top) + 112px); }
+  .story { top: calc(var(--gutter) + env(safe-area-inset-top) + 100px); bottom: auto; }
+  .story-btn { margin-left: 0.2em; padding-left: 1em; }
+  .subtitles { bottom: calc(150px + env(safe-area-inset-bottom)); }
+  .looks { left: 0; right: 0; }
+  .look-row {
+    justify-content: flex-start;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    padding: 0 calc(50vw - 40px);
+    width: 100%;
+    gap: 26px;
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 18%, #000 82%, transparent);
+    mask-image: linear-gradient(to right, transparent, #000 18%, #000 82%, transparent);
+  }
+  .look-row::-webkit-scrollbar { display: none; }
+  .look { scroll-snap-align: center; }
+  .adjust-btn:not([hidden]) { display: inline-block; }
+  /* The controls sit on the brightest part of the picture (the tree's
+     reflection): a deeper, taller shade under them. */
+  .scrim {
+    background:
+      linear-gradient(to bottom, rgba(2, 5, 18, 0.5) 0%, rgba(2, 5, 18, 0) 20%),
+      linear-gradient(to top, rgba(2, 5, 18, 0.9) 0%, rgba(2, 5, 18, 0.72) 22%, rgba(2, 5, 18, 0.35) 40%, rgba(2, 5, 18, 0) 56%);
+  }
+  .look, .look-line, .control, .looks-label, .adjust-btn {
+    text-shadow: 0 1px 2px rgba(0, 0, 8, 0.9), 0 0 14px rgba(0, 0, 10, 0.8);
+  }
+  .adjust { flex-direction: column; align-items: center; gap: 12px; }
+  .control { flex-direction: row; gap: 14px; }
+  .control span { width: 5.5em; text-align: right; }
+  .control input { width: 52vw; height: 28px; }
+}
+
+@media (max-width: 420px) {
+  .hour { font-size: 13px; letter-spacing: 0.04em; }
+  .title { font-size: 14px; }
+  .place { font-size: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0.01ms !important; transition-delay: 0s !important; }
+  .letterbox { display: none; }
+}

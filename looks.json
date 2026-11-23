@@ -1,0 +1,92 @@
+[
+  {
+    "id": "frost",
+    "name": "Frost",
+    "line": "White leaves, a blush of pink on the outer branches, as it stands on a winter night",
+    "swatch": [
+      "#ffffff",
+      "#ffc2d9",
+      "#ff1f6e"
+    ]
+  },
+  {
+    "id": "sap",
+    "name": "Sap",
+    "line": "Light rising from the trunk through every branch to the leaves",
+    "swatch": [
+      "#5a1a00",
+      "#ffb547",
+      "#fff3c4"
+    ]
+  },
+  {
+    "id": "prism",
+    "name": "Prism",
+    "line": "Every leaf a colour of the spectrum, shifting along the twigs",
+    "swatch": [
+      "#ff3b3b",
+      "#3bff8a",
+      "#4a6bff"
+    ]
+  },
+  {
+    "id": "fjord",
+    "name": "Fjord",
+    "line": "Rings of sea light rolling out from the trunk through the crown",
+    "swatch": [
+      "#04206e",
+      "#13b3d1",
+      "#e4fffb"
+    ]
+  },
+  {
+    "id": "glass",
+    "name": "Glass",
+    "line": "The crown cut into slowly turning panes of coloured light",
+    "swatch": [
+      "#7a2fd6",
+      "#e04fb8",
+      "#ffb06b"
+    ]
+  },
+  {
+    "id": "starlings",
+    "name": "Starlings",
+    "line": "A murmuration of light turning through the branches",
+    "swatch": [
+      "#0b2a5c",
+      "#1d4f8f",
+      "#ffffff"
+    ]
+  },
+  {
+    "id": "lighthouse",
+    "name": "Lighthouse",
+    "line": "Beams of light sweeping round the trunk, like a beacon on the fjord",
+    "swatch": [
+      "#06113a",
+      "#1f5fd6",
+      "#ffffff"
+    ]
+  },
+  {
+    "id": "october",
+    "name": "October",
+    "line": "Every leaf turning on its own",
+    "swatch": [
+      "#d42c00",
+      "#ffae2b",
+      "#ffe7a8"
+    ]
+  },
+  {
+    "id": "oslo",
+    "name": "Oslo",
+    "line": "The tree's own song: solid colours, light running round every leaf",
+    "swatch": [
+      "#1430ff",
+      "#c81aff",
+      "#ff2a5a"
+    ]
+  }
+]

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Oslo Tree</title>
+<meta name="description" content="The Oslo tree, fourteen metres of light on the Oslo fjord at Trettenparken. Choose what it plays.">
+<meta name="theme-color" content="#050a1c">
+<meta property="og:title" content="The Oslo Tree">
+<meta property="og:description" content="Fourteen metres of light on the Oslo fjord. Choose what it plays.">
+<meta property="og:image" content="media/poster-frost-blue.jpg">
+<link rel="preload" href="fonts/jost-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="media/poster-frost-blue.webp" as="image">
+<link rel="stylesheet" href="site.css">
+</head>
+<body class="opening">
+<main class="stage" id="stage">
+  <img class="poster" id="poster" src="media/poster-frost-blue.webp" alt="The Oslo tree glowing white and pink at blue hour, beside the harbour at Filipstad, its light reflected in the fjord">
+  <video class="recording" id="recording" muted loop playsinline preload="none" aria-hidden="true" tabindex="-1"></video>
+  <canvas class="live" id="live" tabindex="0" aria-label="The Oslo tree, live. Drag to look around; scroll or pinch to come closer."></canvas>
+  <div class="letterbox" aria-hidden="true"><span></span><span></span></div>
+  <div class="scrim" aria-hidden="true"></div>
+
+  <header class="titles">
+    <h1 class="title">The Oslo Tree</h1>
+    <p class="place">Trettenparken, Filipstad<span class="where"><span class="sep" aria-hidden="true">·</span>on the Oslo fjord</span></p>
+  </header>
+
+  <nav class="hour" aria-label="Time of day">
+    <button type="button" class="hour-btn" data-sky="blue" aria-pressed="true">Blue hour</button>
+    <button type="button" class="hour-btn" data-sky="night" aria-pressed="false">Night</button>
+    <button type="button" class="story-btn" id="story-btn" aria-expanded="false" aria-controls="story">The tree</button>
+  </nav>
+
+  <div class="subtitles" aria-live="polite">
+    <p class="subtitle" data-at="1.6">Fourteen metres of light, standing by the water at Filipstad.</p>
+    <p class="subtitle" data-at="6.4">Grown from the memory of the Ténéré's lone acacia, it first stood in a desert.</p>
+  </div>
+
+  <section class="looks" aria-labelledby="looks-label">
+    <h2 class="looks-label" id="looks-label">Choose what it plays</h2>
+    <div class="look-row" id="look-row" role="group" aria-labelledby="looks-label"></div>
+    <p class="look-line" id="look-line" aria-live="polite"></p>
+    <button type="button" class="adjust-btn" id="adjust-btn" aria-expanded="false" aria-controls="adjust" hidden>Adjust</button>
+    <div class="adjust" id="adjust" role="group" aria-label="Adjust the look" hidden></div>
+  </section>
+
+  <p class="hint" id="hint">Drag to look around</p>
+  <p class="status" id="status" role="status"></p>
+
+  <aside class="story" id="story" hidden aria-labelledby="story-title">
+    <h2 class="story-title" id="story-title">The tree</h2>
+    <p>The Oslo tree is a sculpture of light, fourteen metres tall and nearly as wide. Its leaves glow in colours that drift and change through the evening.</p>
+    <p>It began as the Tree of Ténéré, raised in the Black Rock Desert in 2017 and named for the acacia that once stood alone in the Ténéré, in the Sahara: for hundreds of kilometres, the only tree.</p>
+    <p>Since December 2019 it has stood in Trettenparken at Filipstad, on the Oslo waterfront, lit through the year.</p>
+    <p class="story-note">The tree here is drawn live in your browser by the software that plays the real one, using its own patterns. The harbour around it is a rendering, not a photograph.</p>
+    <button type="button" class="story-close" id="story-close">Close</button>
+  </aside>
+</main>
+<noscript><p class="noscript">The Oslo tree, fourteen metres of light at Trettenparken on the Oslo fjord.</p></noscript>
+<script type="module" src="site.js"></script>
+</body>
+</html>
