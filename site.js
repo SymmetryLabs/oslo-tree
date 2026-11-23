@@ -7,9 +7,10 @@
 //
 // URL parameters: ?look=<id> ?sky=blue ?quality=high|medium|low|minimum
 // ?recorded (force the recorded views) ?bench (measure frame time)
-// ?stats (frame times on the page).
+// ?stats (frame times on the page) ?lead=<ms> (the music's lead, player.js).
 
 import { createChoices } from "./choices.js";
+import { createPlayer } from "./player.js"; // the music (its own module and stylesheet)
 
 const params = new URLSearchParams(location.search);
 const $ = (id) => document.getElementById(id);
@@ -32,6 +33,9 @@ const state = {
 };
 
 const choices = createChoices({ endpoint: null });
+// The music player: it builds its own controls and gives the live scene the
+// position being heard. Nothing plays until the visitor asks.
+createPlayer({ site: () => state.site, lead: params.get("lead") }).then((p) => (window.osloPlayer = p));
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 // A window too small to keep the sliders out: they fold behind "Adjust"
 // (the stylesheet's own breakpoint).
@@ -175,6 +179,7 @@ function endLoading() {
   loader.el.removeAttribute("aria-valuenow");
   setTimeout(() => (loader.el.hidden = true), 1000);
   startSubtitles();
+  cueLooks();
 }
 
 /** The tree did not arrive: say so, with a way to try again. */
@@ -196,31 +201,78 @@ function failLoading(retry) {
 
 // ---- Looks -------------------------------------------------------------
 
-function swatchCss(colors) {
-  return `linear-gradient(to right, ${colors.join(", ")})`;
+// The capsule under the playing look: one element that glides from name
+// to name, in the row so it scrolls with them.
+const lookPill = document.createElement("span");
+lookPill.className = "look-pill";
+lookPill.setAttribute("aria-hidden", "true");
+
+function setColours(el, colors) {
+  const c = colors?.length ? colors : ["#9fb8ff"];
+  [c[0], c[Math.floor(c.length / 2)], c[c.length - 1]].forEach((v, i) => el.style.setProperty(`--c${i + 1}`, v));
 }
 
 function renderLooks() {
   lookRow.replaceChildren(
-    ...state.looks.map((look) => {
+    lookPill,
+    ...state.looks.map((look, i) => {
       const b = document.createElement("button");
       b.type = "button";
       b.className = "look";
       b.dataset.look = look.id;
+      b.style.setProperty("--i", String(i));
+      setColours(b, look.swatch);
       b.setAttribute("aria-pressed", String(look.id === state.look));
-      const sw = document.createElement("span");
-      sw.className = "swatch";
-      sw.style.background = swatchCss(look.swatch);
-      sw.setAttribute("aria-hidden", "true");
+      const bud = document.createElement("span");
+      bud.className = "bud";
+      bud.setAttribute("aria-hidden", "true");
       const name = document.createElement("span");
       name.textContent = look.name;
-      b.append(sw, name);
+      b.append(bud, name);
       b.addEventListener("click", () => choices.choose(look.id, "visitor"));
       return b;
     }),
   );
   showLine();
+  placePill(false);
   markRowEdges();
+}
+
+/** Put the capsule under the playing look, in its colours. */
+function placePill(glide) {
+  const b = lookRow.querySelector('.look[aria-pressed="true"]');
+  if (!b || !b.offsetWidth) {
+    lookPill.classList.remove("placed");
+    return;
+  }
+  const first = !lookPill.classList.contains("placed");
+  lookPill.classList.toggle("gliding", glide && !first && !reducedMotion.matches);
+  setColours(lookPill, state.looks.find((l) => l.id === b.dataset.look)?.swatch);
+  lookPill.style.width = `${b.offsetWidth}px`;
+  lookPill.style.height = `${b.offsetHeight}px`;
+  lookPill.style.transform = `translate(${b.offsetLeft}px, ${b.offsetTop}px)`;
+  lookPill.classList.add("placed");
+}
+document.fonts?.ready.then(() => placePill(false));
+
+// Left and right step along the names, as in any row of choices.
+lookRow.addEventListener("keydown", (e) => {
+  const step = { ArrowLeft: -1, ArrowRight: 1, Home: -Infinity, End: Infinity }[e.key];
+  if (!step) return;
+  const all = [...lookRow.querySelectorAll(".look")];
+  const at = all.indexOf(document.activeElement);
+  if (at < 0) return;
+  e.preventDefault();
+  all[Math.max(0, Math.min(all.length - 1, at + step))].focus();
+});
+
+// Once, as the row comes up: light runs along the leaves.
+function cueLooks() {
+  if (state.interacted || reducedMotion.matches) return;
+  setTimeout(() => {
+    lookRow.classList.add("cue");
+    setTimeout(() => lookRow.classList.remove("cue"), 1500 + state.looks.length * 120 + 200);
+  }, 1500);
 }
 
 function showLine() {
@@ -256,6 +308,7 @@ function markRowEdges() {
 }
 lookRow.addEventListener("scroll", markRowEdges, { passive: true });
 new ResizeObserver(() => {
+  placePill(false);
   centreLook("instant");
   markRowEdges();
 }).observe(lookRow);
@@ -320,8 +373,15 @@ choices.onChoice(({ look, source }) => {
   for (const b of lookRow.querySelectorAll(".look")) {
     b.setAttribute("aria-pressed", String(b.dataset.look === look));
   }
+  placePill(source === "visitor");
   centreLook(source === "visitor" && !reducedMotion.matches ? "smooth" : "instant");
   showLine();
+  if (source === "visitor") {
+    interacted();
+    lookRow.classList.remove("cue");
+    const name = state.looks.find((l) => l.id === look)?.name;
+    if (name) $("look-status").textContent = `${name} is playing`;
+  }
   if (state.mode === "live") {
     state.site.set_look(look);
     controlPositions = {};
@@ -454,6 +514,7 @@ function startRecorded(reason, failed = false, stopped = false) {
 // weighted by its size as gzip (about what crosses the network), from the
 // sizes the build wrote into manifest.json. Kept across a retry.
 const fetched = {};
+// The module: compiled (a WebAssembly.Module), or its bytes.
 let wasmBytes = null;
 
 class NetworkError extends Error {}
@@ -497,6 +558,37 @@ async function fetchBytes(url, progress) {
   }
 }
 
+// The module, compiled as it arrives (the browser compiles while the rest
+// downloads), with the same progress and stall rule; its bytes where the
+// browser cannot compile a stream.
+async function fetchModule(url, progress) {
+  if (!WebAssembly.compileStreaming || typeof TransformStream === "undefined") return fetchBytes(url, progress);
+  const abort = new AbortController();
+  let stall = setTimeout(() => abort.abort(), 30000);
+  try {
+    const response = await fetch(url, { signal: abort.signal });
+    if (!response.ok) throw new NetworkError(`${url}: HTTP ${response.status}`);
+    if (!response.body) return new Uint8Array(await response.arrayBuffer());
+    let read = 0;
+    const counted = response.body.pipeThrough(
+      new TransformStream({
+        transform(chunk, out) {
+          read += chunk.length;
+          progress(read);
+          clearTimeout(stall);
+          stall = setTimeout(() => abort.abort(), 30000);
+          out.enqueue(chunk);
+        },
+      }),
+    );
+    return await WebAssembly.compileStreaming(new Response(counted, { headers: { "Content-Type": "application/wasm" } }));
+  } catch (e) {
+    throw e instanceof NetworkError ? e : new NetworkError(`${url}: ${e?.message ?? e}`);
+  } finally {
+    clearTimeout(stall);
+  }
+}
+
 async function fetchTree() {
   if (!fetched["manifest.json"]) fetched["manifest.json"] = await fetchBytes("manifest.json", () => {});
   const manifest = JSON.parse(new TextDecoder().decode(fetched["manifest.json"]));
@@ -513,7 +605,7 @@ async function fetchTree() {
   await Promise.all(
     wanted.map(async (f) => {
       if (share[f] === 1) return;
-      const bytes = await fetchBytes(f, (n) => {
+      const bytes = await (f.endsWith(".wasm") ? fetchModule : fetchBytes)(f, (n) => {
         share[f] = Math.min(1, n / sizes[f][0]);
         report();
       });
@@ -597,7 +689,10 @@ async function startLive() {
       return;
     }
     frames += 1;
-    if (frames === 3) {
+    // Fade to the live picture once the pattern runs and the exposure has
+    // its first reading (so it opens at the still's exposure, not dark),
+    // or after a second whatever happens.
+    if (!body.classList.contains("is-live") && frames >= 3 && (frames >= 60 || liveReady(site))) {
       body.classList.add("is-live");
       endLoading();
       window.osloLoadMs = performance.now() - opened;
@@ -607,6 +702,11 @@ async function startLive() {
     requestAnimationFrame(loop);
   };
   requestAnimationFrame(loop);
+}
+
+function liveReady(site) {
+  const s = JSON.parse(site.stats());
+  return s.running && s.metered;
 }
 
 // The live scene stopped. A lost GPU device usually comes back, so start
@@ -653,7 +753,29 @@ function resize() {
 // page (a background tab, a tab Chrome slows while still calling it
 // visible), not that the tree is slow, so it discards the window and waits
 // for 2.5 s of steady frames again. Never steps back up within a visit.
-const adaptState = { last: 0, steady: 0, since: 0, frames: 0 };
+// A frame rate held at 30 (a phone in Low Power Mode, a laptop saving its
+// battery: the browser calls the page 30 times a second) is the device's
+// cap, not the tree being slow, when the GPU finishes a frame well inside
+// a 60th of a second: the GPU's time is then sampled (as ?stats does), and
+// the tier stays while it is short.
+const adaptState = { last: 0, steady: 0, since: 0, frames: 0, gaps: [], gpu: -1, probing: false };
+// True when held at 30 by the device (or while its GPU time is sampled).
+function cappedAt30() {
+  const g = adaptState.gaps;
+  if (g.length < 20) return false;
+  const median = [...g].sort((a, b) => a - b)[g.length >> 1];
+  if (!(median > 31 && median < 36)) return false;
+  if (adaptState.gpu < 0 && !adaptState.probing) {
+    adaptState.probing = true;
+    const t0 = performance.now();
+    state.site
+      .gpu_idle()
+      .then(() => (adaptState.gpu = performance.now() - t0))
+      .catch(() => {})
+      .finally(() => (adaptState.probing = false));
+  }
+  return adaptState.gpu < 0 || adaptState.gpu < 12;
+}
 function adapt() {
   if (params.has("quality")) return;
   const now = performance.now();
@@ -663,24 +785,32 @@ function adapt() {
     adaptState.steady = now;
     adaptState.since = now;
     adaptState.frames = 0;
+    adaptState.gaps = [];
     return;
   }
   if (now - adaptState.steady < 2500) {
     adaptState.since = now;
     adaptState.frames = 0;
+    adaptState.gaps = [];
     return;
   }
   adaptState.frames += 1;
+  adaptState.gaps.push(gap);
   if (now - adaptState.since < 1500) return;
   const fps = (adaptState.frames * 1000) / (now - adaptState.since);
+  const capped = cappedAt30();
   adaptState.since = now;
   adaptState.frames = 0;
-  if (fps < 50 && state.tier < TIERS.length - 1) {
+  adaptState.gaps = [];
+  if (fps < 50 && !capped && state.tier < TIERS.length - 1) {
     const before = TIERS[state.tier].quality;
     state.tier = Math.min(TIERS.length - 1, state.tier + (fps < 32 ? 2 : 1));
     if (TIERS[state.tier].quality !== before) state.site.set_quality(TIERS[state.tier].quality);
     resize();
-    console.info(`The Oslo Tree: ${fps.toFixed(1)} fps, now ${TIERS[state.tier].quality} at ${canvas.width}×${canvas.height}`);
+    console.info(`The Oslo Tree: ${fps.toFixed(1)} fps (GPU ${adaptState.gpu.toFixed(1)} ms), now ${TIERS[state.tier].quality} at ${canvas.width}×${canvas.height}`);
+    // The step's own rebuild is not a slow frame of the new tier.
+    adaptState.steady = performance.now();
+    adaptState.gpu = -1;
   }
 }
 
@@ -715,6 +845,8 @@ function updateStats(now) {
     `CPU ${s.frame_ms_mean.toFixed(2)} ms (p95 ${s.frame_ms_p95.toFixed(2)})   GPU ≈ ${statsState.gpu.toFixed(1)} ms`,
     `tier ${state.tier} ${t.quality} × ${t.scale}   ${s.size[0]}×${s.size[1]}   mirror ${s.mirror[0]}×${s.mirror[1]} every ${s.mirror_every}`,
     `${s.adapter}   loaded in ${(s.load_ms / 1000).toFixed(2)} s, ${(s.bytes / 1e6).toFixed(1)} MB`,
+    // The music, while it plays: where it is, its low, middle and high bands, the tempo heard.
+    ...(s.music ? [`music ${s.music.position === null ? "stopped" : s.music.position.toFixed(2) + " s"}   low ${s.music.bands[0].toFixed(2)} mid ${s.music.bands[4].toFixed(2)} high ${s.music.bands[7].toFixed(2)}   ${s.music.tempo.toFixed(0)} bpm`] : []),
   ].join("\n");
 }
 

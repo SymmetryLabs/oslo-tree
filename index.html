@@ -22,6 +22,8 @@
 <link rel="preload" href="media/poster-starlings-night-tall.webp" as="image" media="(max-aspect-ratio: 4/5)">
 <link rel="preload" href="manifest.json" as="fetch" crossorigin>
 <link rel="stylesheet" href="site.css">
+<!-- The music player (web/player.js builds it into the dock). -->
+<link rel="stylesheet" href="player.css">
 </head>
 <body class="opening is-loading">
 <main class="stage" id="stage">
@@ -71,19 +73,19 @@
       <p class="hint" id="hint" role="status">Drag to look around</p>
     </div>
 
-    <section class="looks" id="looks" aria-labelledby="looks-label">
-      <h2 class="looks-label" id="looks-label">Choose what it plays</h2>
+    <section class="looks" id="looks" aria-label="Looks">
       <div class="look-strip" id="look-strip">
         <button type="button" class="row-nav" id="row-prev" aria-label="Earlier looks" tabindex="-1" hidden>
           <svg viewBox="0 0 12 20" aria-hidden="true"><path d="M9 3 3 10l6 7"/></svg>
         </button>
-        <div class="look-row" id="look-row" role="group" aria-labelledby="looks-label"></div>
+        <div class="look-row" id="look-row" role="group" aria-label="What the tree plays"></div>
         <button type="button" class="row-nav" id="row-next" aria-label="More looks" tabindex="-1" hidden>
           <svg viewBox="0 0 12 20" aria-hidden="true"><path d="m3 3 6 7-6 7"/></svg>
         </button>
       </div>
       <button type="button" class="adjust-btn" id="adjust-btn" aria-expanded="false" aria-controls="adjust" hidden>Adjust</button>
       <div class="adjust" id="adjust" role="group" aria-label="Adjust the look" hidden></div>
+      <p class="sr-only" id="look-status" role="status"></p>
     </section>
   </div>
 

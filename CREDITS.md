@@ -10,6 +10,20 @@ added later is listed here with its source.
 The recorded views (`media/`) are renders of the same scene by the same
 code, made by `tools/build-oslo-site.sh`.
 
+## Music
+
+- "In the Hall of the Mountain King", Edvard Grieg (Peer Gynt Suite No. 1,
+  Op. 46, IV), 1875; the Musopen recording of 2012 (the file's own tags
+  name the Czech National Symphony Orchestra). Public domain: Wikimedia
+  Commons marks the file "Public domain", released by Musopen.
+  https://commons.wikimedia.org/wiki/File:Grieg_-_Peer_Gynt_Suite_No._1,_Op._46_-_IV._In_the_Hall_of_the_Mountain_King_(Musopen_Symphony).flac
+  (the FLAC there, SHA-1 `7d34c97620149eff83bc14a1e838ef5d8e66746b`).
+  The page's file (`music/mountain-king.m4a`) is that recording 1.5 dB
+  down, as AAC at 128 kbit/s; nothing else is changed.
+
+Each track added later (`apps/oslo-site/music`) is listed here with its
+artist, its source and its licence.
+
 ## Type
 
 - Jost, by the Jost Project Authors

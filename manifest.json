@@ -9,6 +9,7 @@
  "mixer": "demos/oslo.toml",
  "files": [
   "demos/oslo.toml",
+  "effects/music.wgsl",
   "patterns/branches.wgsl",
   "patterns/crystalline.wgsl",
   "patterns/frost.wgsl",
@@ -22,8 +23,8 @@
  ],
  "sizes": {
   "li_oslo_site_bg.wasm": [
-   2906065,
-   1107964
+   2928590,
+   1116610
   ],
   "shows/oslo-tree/points.q16": [
    892828,
@@ -34,8 +35,12 @@
    121674
   ],
   "demos/oslo.toml": [
-   6792,
-   1504
+   7137,
+   1676
+  ],
+  "effects/music.wgsl": [
+   5519,
+   2298
   ],
   "patterns/branches.wgsl": [
    10979,

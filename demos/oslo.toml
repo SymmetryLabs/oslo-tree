@@ -11,6 +11,14 @@
 
 format = 2
 
+# With music playing (the page's player; an audio input in the console) every
+# look moves with it: a swell out from the trunk on each accent, notes
+# lighting twigs, glints on the highs, more the fuller the music. In silence
+# the effect returns the light as it came, bit for bit.
+[[master_effect]]
+id = 1000030
+file = "../effects/music.wgsl"
+
 [[channel]]
 name = "Colour"
 transition = 5.0

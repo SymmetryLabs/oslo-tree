@@ -1,0 +1,169 @@
+/* The Oslo Tree's music: one quiet row, set like the rest of the frame. A
+   ring to press, the track's name over whose it is, a hairline for where
+   it is, and a way to silence it. It sits at the foot of the dock; on a wide,
+   tall window with the live scene it moves into the corner beside the
+   sliders, so the dock is no taller for it. Uses site.css's colours. */
+
+.player {
+  --player-size: 40px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: min(26rem, calc(100vw - 2 * var(--gutter)));
+  margin-top: clamp(10px, 2.2vh, 18px);
+  color: var(--ink-soft);
+  text-shadow: 0 1px 2px rgba(0, 0, 8, 0.85), 0 0 14px rgba(0, 0, 10, 0.7);
+  opacity: 0;
+  transition: opacity 1.8s var(--ease-out), transform 1.8s var(--ease-out);
+}
+.player.ready { opacity: 1; }
+/* It arrives with the looks, once the tree is lit. */
+body.opening .player, body.is-loading .player { opacity: 0; transform: translateY(10px); visibility: hidden; }
+
+.player button {
+  flex: none;
+  pointer-events: auto;
+  display: grid;
+  place-items: center;
+  color: var(--ink-soft);
+  transition: color 0.4s var(--ease-out), opacity 0.6s var(--ease-out);
+  -webkit-tap-highlight-color: transparent;
+}
+.player button:hover, .player button:focus-visible { color: var(--ink); }
+.player button:focus-visible { outline-offset: 1px; border-radius: 50%; }
+.player svg { display: block; overflow: visible; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Play and pause: a hairline ring. Before the first press a second ring
+   opens out of it and fades, slowly, like a ring on water: an invitation. */
+.player-play { width: var(--player-size); height: var(--player-size); }
+.player-play svg { width: 100%; height: 100%; filter: drop-shadow(0 1px 5px rgba(0, 0, 10, 0.55)); }
+.player-ring { stroke-width: 1; opacity: 0.75; transition: opacity 0.4s var(--ease-out); }
+.player-play:hover .player-ring, .player-play:focus-visible .player-ring { opacity: 1; }
+.player-ripple { stroke-width: 1; opacity: 0; transform-box: fill-box; transform-origin: center; }
+.player[data-state="idle"] .player-ripple { animation: player-ripple 3.6s var(--ease-out) 2.4s infinite; }
+@keyframes player-ripple {
+  0% { opacity: 0.6; transform: scale(1); }
+  70%, 100% { opacity: 0; transform: scale(1.5); }
+}
+.player-glyph-play { fill: currentColor; stroke: none; color: var(--ink); }
+.player-glyph-pause { stroke-width: 1.6; color: var(--ink); display: none; }
+.player[data-state="playing"] .player-glyph-play,
+.player[data-state="loading"] .player-glyph-play { display: none; }
+.player[data-state="playing"] .player-glyph-pause,
+.player[data-state="loading"] .player-glyph-pause { display: block; }
+/* Waiting for the sound: the ring turns. */
+.player[data-state="loading"] .player-ring {
+  stroke-dasharray: 30 92.5;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: player-turn 1.1s linear infinite;
+}
+@keyframes player-turn { to { transform: rotate(360deg); } }
+
+/* The name, whose it is under it (each on its own line, so a long title
+   never costs the artist's name), and under them the hairline. */
+.player-track { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.player-name { margin: 0; letter-spacing: 0.04em; white-space: nowrap; }
+.player-title, .player-artist { display: block; overflow: hidden; text-overflow: ellipsis; }
+.player-title { font-size: clamp(14px, 1.05vw, 16px); line-height: 1.3; color: var(--ink); font-weight: 400; }
+.player-artist { font-size: 12.5px; line-height: 1.3; letter-spacing: 0.06em; color: var(--ink-quiet); }
+.player-artist[hidden] { display: none; }
+.player[data-state="error"] .player-title { color: var(--ink-quiet); }
+
+.player-seek {
+  -webkit-appearance: none;
+  appearance: none;
+  pointer-events: auto;
+  display: block;
+  width: 100%;
+  height: 12px;
+  margin: 1px 0 -2px;
+  background: transparent;
+  cursor: pointer;
+  --played: 0%;
+}
+.player-seek::-webkit-slider-runnable-track {
+  height: 1px;
+  background: linear-gradient(to right, var(--ink-soft) var(--played), var(--rule) var(--played));
+}
+.player-seek::-moz-range-track {
+  height: 1px;
+  background: linear-gradient(to right, var(--ink-soft) var(--played), var(--rule) var(--played));
+}
+/* The handle shows when the line is being used. */
+.player-seek::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 9px;
+  height: 9px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: var(--ink);
+  box-shadow: 0 1px 6px rgba(0, 0, 10, 0.6);
+  opacity: 0;
+  transition: opacity 0.3s var(--ease-out);
+}
+.player-seek::-moz-range-thumb {
+  width: 9px;
+  height: 9px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--ink);
+  opacity: 0;
+  transition: opacity 0.3s var(--ease-out);
+}
+.player-seek:hover::-webkit-slider-thumb, .player-seek:focus-visible::-webkit-slider-thumb, .player-seek:active::-webkit-slider-thumb { opacity: 1; }
+.player-seek:hover::-moz-range-thumb, .player-seek:focus-visible::-moz-range-thumb, .player-seek:active::-moz-range-thumb { opacity: 1; }
+.player-seek:focus-visible { outline: 1px solid var(--ink-soft); outline-offset: 2px; border-radius: 2px; }
+
+/* Sound off and the next track: small, and not there until music has
+   played (their room is kept, so nothing moves when they come). */
+.player-mute, .player-next { width: 32px; height: 32px; margin: 0 -6px 0 -4px; }
+.player-mute svg, .player-next svg { width: 100%; height: 100%; stroke-width: 1.3; filter: drop-shadow(0 1px 5px rgba(0, 0, 10, 0.6)); }
+.player-next[hidden] { display: none; }
+.player:not(.has-played) .player-mute, .player:not(.has-played) .player-next { opacity: 0; visibility: hidden; }
+.player-cross { display: none; }
+.player-mute[aria-pressed="true"] { color: var(--ink); }
+.player-mute[aria-pressed="true"] .player-waves { display: none; }
+.player-mute[aria-pressed="true"] .player-cross { display: block; }
+
+/* A wide, tall window with the live scene: into the dock's corner, level
+   with the sliders (which sit in the middle and leave the sides free),
+   and out of the column, so the dock is no taller for it. */
+@media (min-width: 1100px) and (min-height: 721px) {
+  body.is-live .player {
+    position: absolute;
+    left: calc(var(--gutter) - 3px + env(safe-area-inset-left));
+    bottom: 0;
+    width: min(21rem, calc(50vw - 270px - var(--gutter)));
+    margin: 0;
+  }
+}
+
+/* A page without the dock: the frame's corner. */
+.player-alone {
+  position: absolute;
+  left: calc(var(--gutter) + env(safe-area-inset-left));
+  bottom: calc(var(--gutter) + env(safe-area-inset-bottom));
+  margin: 0;
+}
+
+/* A short window: closer to the row above. */
+@media (max-height: 520px) {
+  .player { --player-size: 36px; margin-top: 4px; gap: 10px; }
+  .player-title { font-size: 14px; }
+  .player-artist { font-size: 12px; }
+  .player-seek { height: 10px; }
+}
+
+/* Under a finger: taller targets, without moving anything. */
+@media (pointer: coarse) {
+  .player { --player-size: 44px; }
+  .player-seek { height: 22px; margin: -4px 0 -7px; }
+  .player-mute, .player-next { width: 44px; height: 44px; margin: 0 -12px 0 -8px; padding: 6px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player[data-state="idle"] .player-ripple { animation: none; }
+  /* Waiting shows as a broken ring, still. */
+  .player[data-state="loading"] .player-ring { animation: none; }
+}
