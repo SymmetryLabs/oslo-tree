@@ -98,8 +98,9 @@ else {
 let subtitlesEnd = 0;
 function startSubtitles() {
   const shift = Math.max(0, performance.now() - opened - 1600 + 900);
-  subtitlesEnd = opened + 12300 + shift;
   const subs = [...document.querySelectorAll(".subtitle")];
+  // With no subtitles the hint follows the opening shortly after the tree is up.
+  subtitlesEnd = subs.length ? opened + 12300 + shift : performance.now() + 2500;
   subs.forEach((s, i) => {
     const at = parseFloat(s.dataset.at) * 1000 + shift;
     const next = subs[i + 1] ? parseFloat(subs[i + 1].dataset.at) * 1000 + shift : at + 5200;
@@ -111,7 +112,7 @@ function startSubtitles() {
       body.classList.add("show-hint");
       setTimeout(() => body.classList.remove("show-hint"), 6500);
     }
-  }, 12500 + shift - (performance.now() - opened));
+  }, Math.max(0, subtitlesEnd + 200 - performance.now()));
 }
 
 // ---- Loading -------------------------------------------------------------
@@ -223,6 +224,7 @@ function renderLooks() {
 }
 
 function showLine() {
+  if (!lookLine) return;
   const look = state.looks.find((l) => l.id === state.look);
   lookLine.classList.add("changing");
   setTimeout(() => {
