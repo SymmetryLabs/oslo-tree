@@ -10,21 +10,15 @@
  "files": [
   "demos/oslo.toml",
   "effects/music.wgsl",
-  "patterns/branches.wgsl",
-  "patterns/crystalline.wgsl",
-  "patterns/frost.wgsl",
-  "patterns/growth.wgsl",
+  "patterns/canopy.wgsl",
   "patterns/leaf_colours.wgsl",
   "patterns/leaf_textures.wgsl",
-  "patterns/sparkle.wgsl",
-  "patterns/spheres.wgsl",
-  "patterns/starlings.wgsl",
-  "patterns/tree_beams.wgsl"
+  "patterns/starlings.wgsl"
  ],
  "sizes": {
   "li_oslo_site_bg.wasm": [
-   3000474,
-   1151514
+   3001644,
+   1151414
   ],
   "shows/oslo-tree/points.q16": [
    892828,
@@ -35,28 +29,16 @@
    121674
   ],
   "demos/oslo.toml": [
-   7346,
-   1767
+   5891,
+   1586
   ],
   "effects/music.wgsl": [
    5519,
    2298
   ],
-  "patterns/branches.wgsl": [
-   12870,
-   5054
-  ],
-  "patterns/crystalline.wgsl": [
-   13438,
-   5168
-  ],
-  "patterns/frost.wgsl": [
-   3103,
-   1350
-  ],
-  "patterns/growth.wgsl": [
-   9969,
-   3829
+  "patterns/canopy.wgsl": [
+   27094,
+   9290
   ],
   "patterns/leaf_colours.wgsl": [
    11790,
@@ -66,21 +48,9 @@
    13593,
    5230
   ],
-  "patterns/sparkle.wgsl": [
-   9859,
-   3977
-  ],
-  "patterns/spheres.wgsl": [
-   14225,
-   5107
-  ],
   "patterns/starlings.wgsl": [
    9730,
    3692
-  ],
-  "patterns/tree_beams.wgsl": [
-   13195,
-   4984
   ]
  }
 }

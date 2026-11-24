@@ -12,7 +12,7 @@
   {
     "id": "frost",
     "name": "Frost",
-    "line": "White leaves, a blush of pink on the outer branches, as it stands on a winter night",
+    "line": "Hoarfrost: leaves glinting white a few at a time, a blush of pink drifting through the outer branches",
     "swatch": [
       "#ffffff",
       "#ffc2d9",
@@ -22,7 +22,7 @@
   {
     "id": "sap",
     "name": "Sap",
-    "line": "Light rising from the trunk through every branch to the leaves",
+    "line": "Light rising from the foot of the trunk and out along the branches, a limb at a time",
     "swatch": [
       "#5a1a00",
       "#ffb547",
@@ -32,7 +32,7 @@
   {
     "id": "prism",
     "name": "Prism",
-    "line": "Every leaf a colour of the spectrum, shifting along the twigs",
+    "line": "A ribbon of the spectrum winding up through the tree",
     "swatch": [
       "#ff3b3b",
       "#3bff8a",
@@ -42,7 +42,7 @@
   {
     "id": "fjord",
     "name": "Fjord",
-    "line": "Rings of sea light rolling out from the trunk through the crown",
+    "line": "Arcs of sea light rolling out through the crown like ripples",
     "swatch": [
       "#04206e",
       "#13b3d1",
@@ -52,7 +52,7 @@
   {
     "id": "glass",
     "name": "Glass",
-    "line": "The crown cut into slowly turning panes of coloured light",
+    "line": "Each twig a pane of coloured glass, lit a few at a time along the branches",
     "swatch": [
       "#7a2fd6",
       "#e04fb8",
@@ -62,7 +62,7 @@
   {
     "id": "lighthouse",
     "name": "Lighthouse",
-    "line": "Beams of light sweeping round the trunk, like a beacon on the fjord",
+    "line": "Two beams turning round the trunk through the haze, like a beacon on the fjord",
     "swatch": [
       "#06113a",
       "#1f5fd6",
@@ -72,7 +72,7 @@
   {
     "id": "october",
     "name": "October",
-    "line": "Every leaf turning on its own",
+    "line": "Embers: leaves kindling one by one as the wind crosses the crown",
     "swatch": [
       "#d42c00",
       "#ffae2b",
@@ -82,7 +82,7 @@
   {
     "id": "oslo",
     "name": "Oslo",
-    "line": "The tree's own song: solid colours, light running round every leaf",
+    "line": "The tree's own song: snakes of light running leaf by leaf along every branch",
     "swatch": [
       "#1430ff",
       "#c81aff",
