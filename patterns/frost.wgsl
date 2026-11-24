@@ -25,6 +25,14 @@
 //! min = 0.0
 //! max = 10.0
 //! unit = "×"
+//! [[param]]
+//! id = "drift"
+//! label = "Drifted on"
+//! type = "float"
+//! default = 0.0
+//! min = 0.0
+//! max = 1000000.0
+//! unit = "s"
 
 // The canopy taken as an ellipsoid over the show's bounds (centred a little
 // above half height, where a tree's crown is widest). A point's place in it
@@ -53,14 +61,14 @@ fn frost_noise(q: vec3<f32>) -> f32 {
     return v;
 }
 
-fn pattern(s: Sample, p: Params, f: Frame) -> vec4<f32> {
+// The pattern with its patches at drift time `t`.
+fn frosted(s: Sample, p: Params, f: Frame, t: f32) -> vec4<f32> {
     let lo = f.bounds_min;
     let hi = f.bounds_max;
     let c = vec3<f32>(0.5 * (lo.x + hi.x), lo.y + 0.55 * (hi.y - lo.y), 0.5 * (lo.z + hi.z));
     let half = max(0.5 * (hi - lo), vec3<f32>(1e-3));
     let e = length((s.pos - c) / half);
     let shell = smoothstep(1.0 - p.depth - 0.1, 1.0, e);
-    let t = f.time * 0.05 * p.speed;
     let scale = 2.2 / max(max(half.x, half.y), half.z);
     let n = 0.65 * frost_noise(s.pos * scale + vec3<f32>(t, 0.6 * t, -0.8 * t))
         + 0.35 * frost_noise(s.pos * scale * 3.1 - vec3<f32>(1.3 * t, 0.0, t));
@@ -68,4 +76,16 @@ fn pattern(s: Sample, p: Params, f: Frame) -> vec4<f32> {
     let blush = palette(0.02 + 0.12 * (1.0 - n));
     let white = palette(1.0);
     return vec4<f32>(mix(white, blush, amount), 1.0);
+}
+
+fn pattern(s: Sample, p: Params, f: Frame) -> vec4<f32> {
+    let t = f.time * 0.05 * p.speed;
+    // `drift` is seconds the patches have drifted on besides (a host moves
+    // it to carry them along with a sound). Its own path, so that without
+    // it the pattern is computed exactly as it always was, to the last
+    // bit.
+    if (p.drift != 0.0) {
+        return frosted(s, p, f, t + 0.05 * p.drift);
+    }
+    return frosted(s, p, f, t);
 }

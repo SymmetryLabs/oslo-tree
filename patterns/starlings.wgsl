@@ -73,6 +73,22 @@
 //! unit = "show sizes/s"
 //! for = "simulation"
 //! [[param]]
+//! id = "attract"
+//! label = "Pull to a point"
+//! type = "float"
+//! default = 0.0
+//! min = 0.0
+//! max = 10.0
+//! for = "simulation"
+//! [[param]]
+//! id = "attract_point"
+//! label = "The point"
+//! type = "vec3"
+//! default = [0.5, 0.5, 0.5]
+//! min = 0.0
+//! max = 1.0
+//! for = "simulation"
+//! [[param]]
 //! id = "size"
 //! label = "Bird size"
 //! type = "float"

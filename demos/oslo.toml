@@ -18,6 +18,12 @@ format = 2
 [[master_effect]]
 id = 1000030
 file = "../effects/music.wgsl"
+# Gentler than the effect's own defaults: the looks' motion carries the
+# music now (apps/oslo-site/src/motion.rs), and the light only answers it.
+[master_effect.params]
+pulse = 0.5
+notes = 0.35
+sparkle = 0.4
 
 [[channel]]
 name = "Colour"

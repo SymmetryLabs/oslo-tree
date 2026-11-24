@@ -32,6 +32,22 @@
 //! max = 45.0
 //! unit = "°/s"
 //! [[param]]
+//! id = "angle"
+//! label = "Turned on"
+//! type = "float"
+//! default = 0.0
+//! min = 0.0
+//! max = 360.0
+//! unit = "°"
+//! [[param]]
+//! id = "slide"
+//! label = "Drifted on"
+//! type = "float"
+//! default = 0.0
+//! min = 0.0
+//! max = 1000000.0
+//! unit = "s"
+//! [[param]]
 //! id = "seam"
 //! label = "Seam width"
 //! type = "float"
@@ -280,7 +296,8 @@ fn rotate(v: vec3<f32>, k: vec3<f32>, a: f32) -> vec3<f32> {
 // rather than a corner of it.
 const DESIGN_SIZE: f32 = 2.5;
 
-fn pattern(s: Sample, p: Params, f: Frame) -> vec4<f32> {
+// The pattern at the point `pos`, its sets drifted for `slid` seconds.
+fn crystal(pos: vec3<f32>, p: Params, f: Frame, slid: f32) -> vec4<f32> {
     let shrink = min(lib_show_size(f) / DESIGN_SIZE, 1.0);
     let t = f.time;
     let n = direction_count(p.symmetry);
@@ -292,7 +309,7 @@ fn pattern(s: Sample, p: Params, f: Frame) -> vec4<f32> {
     // colour.
     let cell = max(shrink * p.cell, max(lib_show_size(f) / 8.0, 3.0 * f32(n) * (2.0 * seam_half + soft)));
     // The whole lattice turns slowly about a tilted axis through the centre.
-    var q = rotate(s.pos - (lib_show_middle(f) + shrink * p.centre), vec3<f32>(0.28, 0.93, 0.24), radians(p.turn) * t);
+    var q = rotate(pos - (lib_show_middle(f) + shrink * p.centre), vec3<f32>(0.28, 0.93, 0.24), radians(p.turn) * t);
     if (p.symmetry == SYMMETRY_FOLDED) {
         // A kaleidoscope: mirror space three times about tilted planes, so
         // the cubic lattice reflects into itself round the centre.
@@ -308,7 +325,7 @@ fn pattern(s: Sample, p: Params, f: Frame) -> vec4<f32> {
         // Each set of planes drifts along its normal, alternate sets the
         // other way, so the cells keep re-forming.
         let sign = select(1.0, -0.7, (j & 1) == 1);
-        let x = (dot(q, direction(p.symmetry, j)) + sign * shrink * p.drift * t) / cell;
+        let x = (dot(q, direction(p.symmetry, j)) + sign * shrink * p.drift * slid) / cell;
         let k = floor(x);
         let fx = x - k;
         wall = min(wall, cell * min(fx, 1.0 - fx));
@@ -325,4 +342,21 @@ fn pattern(s: Sample, p: Params, f: Frame) -> vec4<f32> {
     let seam_w = lib_slab(wall, seam_half, soft);
     let seam_rgb = show_or_lib_palette(p.palette, 1.0, p.tint) * (1.6 * min(shrink * p.seam / soft, 1.0));
     return vec4<f32>(mix(cell_rgb, seam_rgb, seam_w) * p.brightness, 1.0);
+}
+
+fn pattern(s: Sample, p: Params, f: Frame) -> vec4<f32> {
+    // `angle` turns the lattice on from where its own turning has it, and
+    // `slide` drifts its sets on by that many seconds of their drift (a
+    // host steps them to turn the panes on a phrase and re-form them on a
+    // beat). Their own path, the same pattern at the point turned on
+    // round the lattice's axis (two turns about one axis add up) and at
+    // another drift, so that without them it is computed exactly as it
+    // always was, to the last bit.
+    if (p.angle != 0.0 || p.slide != 0.0) {
+        let shrink = min(lib_show_size(f) / DESIGN_SIZE, 1.0);
+        let middle = lib_show_middle(f) + shrink * p.centre;
+        let turned = middle + rotate(s.pos - middle, vec3<f32>(0.28, 0.93, 0.24), radians(p.angle));
+        return crystal(turned, p, f, f.time + p.slide);
+    }
+    return crystal(s.pos, p, f, f.time);
 }

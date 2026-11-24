@@ -26,6 +26,22 @@
 //! max = 5.0
 //! unit = "×"
 //! [[param]]
+//! id = "pulse"
+//! label = "Pulses on notes"
+//! type = "float"
+//! default = 0.0
+//! min = 0.0
+//! max = 4.0
+//! unit = "×"
+//! [[param]]
+//! id = "pulse_time"
+//! label = "Their time up the show"
+//! type = "float"
+//! default = 0.7
+//! min = 0.05
+//! max = 1.5
+//! unit = "s"
+//! [[param]]
 //! id = "softness"
 //! label = "Edge softness"
 //! type = "float"
@@ -210,10 +226,31 @@ fn show_or_lib_palette(id: u32, x: f32, tint: vec3<f32>) -> vec3<f32> {
     return lib_palette(id, x, tint);
 }
 
+// A note `ago` seconds ago, 0..1: how far the bands stood then over where
+// they were 180 ms before (the low bands whole, the rest a little less),
+// which every note raises for about that long: a plucked string, a drum,
+// a cymbal. 0 in silence.
+fn note_at(ago: f32) -> f32 {
+    let w = array<f32, 8>(1.0, 1.0, 0.8, 0.6, 0.6, 0.5, 0.6, 0.6);
+    var flux = 0.0;
+    for (var b = 0u; b < 8u; b++) {
+        flux += w[b] * max(audio_history(ago, b) - audio_history(ago + 0.18, b), 0.0);
+    }
+    // Against how loud the passage is, so a full one's own stir is not a
+    // note.
+    let floor = 0.06 + 0.3 * audio_loudness();
+    return smoothstep(floor, floor + 0.45, flux);
+}
+
 // Distance between two places on a loop of length n.
 fn wrap(a: f32, b: f32, n: f32) -> f32 {
     let d = abs(a - b) - n * floor(abs(a - b) / n);
     return min(d, n - d);
+}
+
+// The pattern's colour: `c` lit by `v`.
+fn lit(c: vec3<f32>, v: f32, p: Params) -> vec4<f32> {
+    return vec4<f32>(c * (1.2 * v * p.brightness), 1.0);
 }
 
 fn pattern(s: Sample, p: Params, f: Frame) -> vec4<f32> {
@@ -280,5 +317,18 @@ fn pattern(s: Sample, p: Params, f: Frame) -> vec4<f32> {
         }
     }
     let c = show_or_lib_palette(p.palette, 0.3 + 0.5 * u, p.tint);
-    return vec4<f32>(c * (1.2 * v * p.brightness), 1.0);
+    if (p.pulse > 0.0) {
+        // On each note a pulse rises through the show, from its foot to
+        // its top in `pulse_time`, and out along each branch to its tip a
+        // little after: a point sees the note that much later, read from
+        // the audio's history. Paler than the branch's colour there, and
+        // the brighter of the two. Its own path, the same light with
+        // another colour and level, so that without it the pattern is
+        // computed exactly as it always was, to the last bit.
+        let ago = min(p.pulse_time * (s.npos.y + 0.3 * u), 1.5);
+        let beat = p.pulse * note_at(ago);
+        let pale = show_or_lib_palette(p.palette, 0.95, p.tint);
+        return lit(mix(c, pale, 0.7 * clamp(beat - v, 0.0, 1.0)), max(v, beat), p);
+    }
+    return lit(c, v, p);
 }

@@ -1,6 +1,6 @@
 //! name = "Leaf colours"
 //! description = "Every leaf its own palette colour, turning leaf by leaf, or a gradient along twigs"
-//! inputs = ["structure", "palette"]
+//! inputs = ["audio", "structure", "palette"]
 //! fits = ["tree"]
 //! [[param]]
 //! id = "mode"
@@ -34,6 +34,39 @@
 //! max = 10.0
 //! unit = "×"
 //! shown_when = { param = "mode", is = "gradient" }
+//! [[param]]
+//! id = "shift"
+//! label = "Slid on (gradient)"
+//! type = "float"
+//! default = 0.0
+//! min = 0.0
+//! max = 1.0
+//! unit = "laps"
+//! shown_when = { param = "mode", is = "gradient" }
+//! [[param]]
+//! id = "bands"
+//! label = "Strata (gradient)"
+//! type = "float"
+//! default = 0.0
+//! min = 0.0
+//! max = 1.0
+//! shown_when = { param = "mode", is = "gradient" }
+//! [[param]]
+//! id = "wave"
+//! label = "Wave on notes"
+//! type = "float"
+//! default = 0.0
+//! min = 0.0
+//! max = 2.0
+//! unit = "of the palette"
+//! [[param]]
+//! id = "wave_time"
+//! label = "Its time across the show"
+//! type = "float"
+//! default = 0.9
+//! min = 0.05
+//! max = 1.5
+//! unit = "s"
 //! [[param]]
 //! id = "palette"
 //! label = "Palette"
@@ -212,26 +245,73 @@ fn show_or_lib_palette(id: u32, x: f32, tint: vec3<f32>) -> vec3<f32> {
     return lib_palette(id, x, tint);
 }
 
+// A note `ago` seconds ago, 0..1: how far the bands stood then over where
+// they were 80 ms before (the low bands whole, the rest a little less),
+// which every note raises for a moment: a plucked string, a drum, a
+// cymbal. 0 in silence. The Oslo tree's website counts its notes the same
+// way (`apps/oslo-site/src/motion.rs`).
+fn note_at(ago: f32) -> f32 {
+    let w = array<f32, 8>(1.0, 1.0, 0.8, 0.6, 0.6, 0.5, 0.6, 0.6);
+    var flux = 0.0;
+    for (var b = 0u; b < 8u; b++) {
+        flux += w[b] * max(audio_history(ago, b) - audio_history(ago + 0.08, b), 0.0);
+    }
+    // Against how loud the passage is, so a full one's own stir is not a
+    // note.
+    let floor = 0.06 + 0.3 * audio_loudness();
+    return smoothstep(floor, floor + 0.45, flux);
+}
+
+// How far a point is from the foot of the show (the middle of its floor),
+// 0 there to 1 at the farthest leaves: what a wave leaving the trunk
+// crosses.
+fn from_foot(pos: vec3<f32>, f: Frame) -> f32 {
+    let size = max(f.bounds_max - f.bounds_min, vec3<f32>(1e-3));
+    let foot = vec3<f32>(
+        0.5 * (f.bounds_min.x + f.bounds_max.x),
+        f.bounds_min.y,
+        0.5 * (f.bounds_min.z + f.bounds_max.z),
+    );
+    return clamp(length((pos - foot) / size) / 1.2, 0.0, 1.0);
+}
+
 fn pattern(s: Sample, p: Params, f: Frame) -> vec4<f32> {
     var c: vec3<f32>;
+    // With `wave`, every note sends a wave out from the foot of the show,
+    // across it in `wave_time` (a leaf sees the note that much later, read
+    // from the audio's history): where it passes the leaves turn further
+    // along the palette, and back behind it.
+    var push = 0.0;
+    if (p.wave > 0.0) {
+        push = p.wave * note_at(min(from_foot(s.pos, f) * p.wave_time, 1.6));
+    }
     if (p.mode == MODE_TWOTONE) {
         // Each leaf has a random bias; once `amount` passes it, the leaf
         // turns from the palette's start to its end over 0.1 of `amount`
         // (the old ColorTwoToneLeaves).
-        let u = clamp((p.amount - s.fixture_rand) / 0.1, 0.0, 1.0);
+        let u = clamp((p.amount + push - s.fixture_rand) / 0.1, 0.0, 1.0);
         c = mix(show_or_lib_palette(p.palette, 0.1, p.tint), show_or_lib_palette(p.palette, 0.9, p.tint), u);
     } else if (p.mode == MODE_GRADIENT) {
         // The palette along every twig's leaves, sliding one leaf on every
         // 8 s / count (the old ColorGradientTwig: a lap in 8 s), blended
         // between neighbours so it glides.
         let n = f32(max(s.group_count, 1u));
-        let x = (f32(s.group_index) + f.time * p.speed * n / 8.0) / n;
-        c = show_or_lib_palette(p.palette, lib_cycle(2.0 * x), p.tint);
+        // `shift` slides it on by that much of a lap besides (a host steps
+        // it on a beat).
+        var x = (f32(s.group_index) + f.time * p.speed * n / 8.0) / n + p.shift;
+        if (p.bands > 0.0) {
+            // `bands` takes the colours from the leaf's height instead of
+            // its place on its twig, as far as it says: the palette then
+            // lies in strata up the show (one lap of it), which climb as
+            // it slides.
+            x += p.bands * ((1.0 - s.npos.y) - f32(s.group_index) / n);
+        }
+        c = show_or_lib_palette(p.palette, lib_cycle(2.0 * (x + push)), p.tint);
     } else {
         // Every leaf its own colour from the first `range` of the palette
         // (the old ColorAutumn cycled hues 0 to 30° by leaf number; here
         // the leaf's random value, so neighbours differ).
-        c = show_or_lib_palette(p.palette, p.range * s.fixture_rand, p.tint);
+        c = show_or_lib_palette(p.palette, p.range * s.fixture_rand + push, p.tint);
     }
     return vec4<f32>(c * p.brightness, 1.0);
 }

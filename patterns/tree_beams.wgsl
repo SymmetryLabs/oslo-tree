@@ -17,6 +17,23 @@
 //! max = 120.0
 //! unit = "s"
 //! [[param]]
+//! id = "turn"
+//! label = "Turned on"
+//! type = "float"
+//! default = 0.0
+//! min = 0.0
+//! max = 1.0
+//! unit = "turns"
+//! [[param]]
+//! id = "beam"
+//! label = "Lamp (colour lighthouse)"
+//! type = "float"
+//! default = 0.0
+//! min = 0.0
+//! max = 2.0
+//! unit = "×"
+//! shown_when = { param = "mode", is = "colour_lighthouse" }
+//! [[param]]
 //! id = "size"
 //! label = "Size"
 //! type = "float"
@@ -237,9 +254,11 @@ fn pattern(s: Sample, p: Params, f: Frame) -> vec4<f32> {
     let az = atan2(d.z, d.x) + PI;
     let theta = acos(clamp(d.y / max(length(d), 1e-4), -1.0, 1.0));
     let yn = s.npos.y;
-    // The turning heading: a lap every `period` seconds.
-    let a = TAU * fract(t / p.period);
+    // The turning heading: a lap every `period` seconds, and `turn` turns
+    // on from there (a host steps it to turn the beams on a beat).
+    let a = TAU * fract(t / p.period + p.turn);
     var v = 0.0;
+    var lamp = 0.0;
     var pos = 0.3 + 0.5 * yn;
     switch p.mode {
         case MODE_GENTLE: {
@@ -285,6 +304,13 @@ fn pattern(s: Sample, p: Params, f: Frame) -> vec4<f32> {
             let x = az + abs(yn - 0.5) * p.slope * PI;
             pos = 0.5 * wrapdist(x, a) / PI * p.size;
             v = 1.0;
+            // With `beam`, the lamp itself: a beam an eighth of a turn
+            // wide on the pale side, opposite the heading, in the
+            // palette's top.
+            if (p.beam > 0.0) {
+                let b = max(0.0, 1.0 - wrapdist(x, a + PI) / (0.125 * PI));
+                lamp = p.beam * b * b * (3.0 - 2.0 * b);
+            }
         }
         case MODE_SWIRL: {
             // A rainbow barber pole: colour by azimuth less a share of the
@@ -315,6 +341,13 @@ fn pattern(s: Sample, p: Params, f: Frame) -> vec4<f32> {
             v = max(0.0, 1.0 - wrapdist(x, a) / (0.5 * PI * p.size));
         }
     }
-    let rgb = show_or_lib_palette(p.palette, pos, p.tint) * (1.2 * v);
+    var rgb = show_or_lib_palette(p.palette, pos, p.tint) * (1.2 * v);
+    if (p.beam > 0.0 && p.mode == MODE_COLOUR_LIGHTHOUSE) {
+        // The lamp's beam over the colours, which stand back for it (down
+        // to under half) so it reads as a beam.
+        let on = min(p.beam, 1.0);
+        rgb = rgb * (1.0 - 0.55 * on * (1.0 - lamp / p.beam))
+            + show_or_lib_palette(p.palette, 1.0, p.tint) * (1.5 * lamp);
+    }
     return vec4<f32>(rgb * p.brightness, 1.0);
 }

@@ -23,8 +23,8 @@
  ],
  "sizes": {
   "li_oslo_site_bg.wasm": [
-   2979027,
-   1141675
+   3000474,
+   1151514
   ],
   "shows/oslo-tree/points.q16": [
    892828,
@@ -35,32 +35,32 @@
    121674
   ],
   "demos/oslo.toml": [
-   7137,
-   1676
+   7346,
+   1767
   ],
   "effects/music.wgsl": [
    5519,
    2298
   ],
   "patterns/branches.wgsl": [
-   10979,
-   4366
+   12870,
+   5054
   ],
   "patterns/crystalline.wgsl": [
-   12162,
-   4786
+   13438,
+   5168
   ],
   "patterns/frost.wgsl": [
-   2489,
-   1130
+   3103,
+   1350
   ],
   "patterns/growth.wgsl": [
    9969,
    3829
   ],
   "patterns/leaf_colours.wgsl": [
-   8942,
-   3634
+   11790,
+   4607
   ],
   "patterns/leaf_textures.wgsl": [
    13593,
@@ -71,16 +71,16 @@
    3977
   ],
   "patterns/spheres.wgsl": [
-   10239,
-   4064
+   14225,
+   5107
   ],
   "patterns/starlings.wgsl": [
-   9416,
-   3639
+   9730,
+   3692
   ],
   "patterns/tree_beams.wgsl": [
-   12022,
-   4664
+   13195,
+   4984
   ]
  }
 }

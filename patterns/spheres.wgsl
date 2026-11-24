@@ -1,6 +1,6 @@
 //! name = "Spheres"
 //! description = "Shells expanding from one or several centres: ripples, standing waves or rings"
-//! inputs = ["palette"]
+//! inputs = ["audio", "palette"]
 //! [[param]]
 //! id = "mode"
 //! label = "Mode"
@@ -53,6 +53,30 @@
 //! default = 1.5
 //! min = -20.0
 //! max = 20.0
+//! unit = "m/s"
+//! [[param]]
+//! id = "phase"
+//! label = "Moved on"
+//! type = "float"
+//! default = 0.0
+//! min = 0.0
+//! max = 5.0
+//! unit = "shells"
+//! [[param]]
+//! id = "launch"
+//! label = "Rings on notes"
+//! type = "float"
+//! default = 0.0
+//! min = 0.0
+//! max = 4.0
+//! unit = "×"
+//! [[param]]
+//! id = "launch_speed"
+//! label = "Their speed"
+//! type = "float"
+//! default = 6.0
+//! min = 0.5
+//! max = 40.0
 //! unit = "m/s"
 //! [[param]]
 //! id = "reach"
@@ -260,6 +284,23 @@ fn centre_of(k: i32, n: i32, c: vec3<f32>, p: Params, t: f32, shrink: f32) -> ve
     return c + shrink * p.spread * vec3<f32>(cos(a), bob, sin(a));
 }
 
+// A note `ago` seconds ago, 0..1: how far the bands stood then over where
+// they were 80 ms before (the low bands whole, the rest a little less),
+// which every note raises for a moment: a plucked string, a drum, a
+// cymbal. 0 in silence. The Oslo tree's website counts its notes the same
+// way (`apps/oslo-site/src/motion.rs`).
+fn note_at(ago: f32) -> f32 {
+    let w = array<f32, 8>(1.0, 1.0, 0.8, 0.6, 0.6, 0.5, 0.6, 0.6);
+    var flux = 0.0;
+    for (var b = 0u; b < 8u; b++) {
+        flux += w[b] * max(audio_history(ago, b) - audio_history(ago + 0.08, b), 0.0);
+    }
+    // Against how loud the passage is, so a full one's own stir is not a
+    // note.
+    let floor = 0.06 + 0.3 * audio_loudness();
+    return smoothstep(floor, floor + 0.45, flux);
+}
+
 // The lengths in metres (centre, spread, wavelength, thickness, speed,
 // reach, softness) are for a show 10 m or more across (a tree); a smaller
 // show (the cubes, a branch, a twig) is drawn as if it were scaled up to 10
@@ -267,7 +308,65 @@ fn centre_of(k: i32, n: i32, c: vec3<f32>, p: Params, t: f32, shrink: f32) -> ve
 // once.
 const DESIGN_SIZE: f32 = 10.0;
 
+// The ripples over the shells' light `rgb`: with `launch`, a ripple leaves
+// each centre on every note and rolls out at `launch_speed`: a point r
+// away sees the note r / speed later, read from the audio's history
+// (which holds 2 s, so a ripple fades out as it nears 1.5 s old). The
+// light gathers on its crest and, a moment behind it, sinks into a trough
+// of the palette's deep colour.
+fn rippled(rgb: vec3<f32>, s: Sample, p: Params, f: Frame) -> vec3<f32> {
+    let shrink = min(lib_show_size(f) / DESIGN_SIZE, 1.0);
+    let middle = lib_show_middle(f) + shrink * p.centre;
+    var ripple = 0.0;
+    var dip = 0.0;
+    for (var k = 0; k < p.count; k++) {
+        let d = (s.pos - centre_of(k, p.count, middle, p, f.time, shrink)) / shrink;
+        let r = select(length(d), length(d.xz), p.mode == MODE_RINGS);
+        let ago = r / p.launch_speed;
+        let live = p.launch * (1.0 - smoothstep(1.1, 1.5, ago));
+        ripple = max(ripple, live * note_at(min(ago, 1.5)));
+        dip = max(dip, live * note_at(clamp(ago - 0.09, 0.0, 1.5)));
+    }
+    let deep = show_or_lib_palette(p.palette, 0.12, p.tint);
+    return mix(rgb * (1.0 + 0.35 * ripple), deep * 1.1, 0.85 * min(dip, 1.0));
+}
+
+// The pattern with its shells moved on by `phase` of themselves and, with
+// `launch`, the ripples over them: the pattern's own sum with the shells
+// further out. Kept apart from it so that without either the pattern is
+// computed as it always was.
+fn moved(s: Sample, p: Params, f: Frame) -> vec4<f32> {
+    let t = f.time;
+    let shrink = min(lib_show_size(f) / DESIGN_SIZE, 1.0);
+    let duty = p.thickness / p.wavelength;
+    let w = p.softness / p.wavelength;
+    let middle = lib_show_middle(f) + shrink * p.centre;
+    var rgb = vec3<f32>(0.0);
+    for (var k = 0; k < p.count; k++) {
+        let d = (s.pos - centre_of(k, p.count, middle, p, t, shrink)) / shrink;
+        let r = select(length(d), length(d.xz), p.mode == MODE_RINGS);
+        let outward = (r - p.speed * t) / p.wavelength - p.phase;
+        var cover = lib_band(outward, duty, w);
+        if (p.mode == MODE_STANDING) {
+            cover += lib_band((r + p.speed * t) / p.wavelength + p.phase, duty, w);
+        }
+        let fade = 1.0 / (1.0 + (r / p.reach) * (r / p.reach));
+        let c = lib_cycle(0.4 * outward + 0.6 * f32(k));
+        rgb += show_or_lib_palette(p.palette, c, p.tint) * (1.6 * cover * fade);
+    }
+    if (p.launch > 0.0) {
+        rgb = rippled(rgb, s, p, f);
+    }
+    return vec4<f32>(rgb * p.brightness, 1.0);
+}
+
 fn pattern(s: Sample, p: Params, f: Frame) -> vec4<f32> {
+    // `phase` moves the shells on by that many of themselves (a host steps
+    // it to push them out on a beat), and `launch` sends ripples over
+    // them: their own path.
+    if (p.phase != 0.0 || p.launch > 0.0) {
+        return moved(s, p, f);
+    }
     let t = f.time;
     let shrink = min(lib_show_size(f) / DESIGN_SIZE, 1.0);
     let duty = p.thickness / p.wavelength;
